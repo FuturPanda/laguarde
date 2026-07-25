@@ -1,13 +1,45 @@
 {
-  "name": "laguarde",
+  "name": "laguarde-mcp",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Self-hostable policy control plane for AI coding agents",
+  "mcpName": "dev.futur-panda/laguarde",
+  "bin": {
+    "laguarde": "./dist/stdio.js"
+  },
+  "files": [
+    "dist",
+    "public",
+    "llms.txt",
+    "README.md",
+    "server.json"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "homepage": "https://www.futur-panda.dev/laguarde/docs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FuturPanda/laguarde.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FuturPanda/laguarde/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "mcp",
+    "ai-agents",
+    "policy",
+    "guardrails",
+    "self-hosted"
+  ],
   "scripts": {
     "dev": "bun --watch src/server.ts",
-    "start": "bun src/server.ts",
-    "build": "bun build src/server.ts --outdir dist --target bun",
+    "start": "node dist/server.js",
+    "build": "bun build src/server.ts src/stdio.ts --outdir dist --target node --packages external --sourcemap=external",
+    "prepack": "bun run build",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "db:seed": "bun src/db/seed-cli.ts",

@@ -36,16 +36,18 @@ export function buildStaticHumanGuide(
   publicLinks: {
     docsUrl?: string;
     installUrl?: string;
-    archiveUrl?: string;
-    checksumUrl?: string;
+    packageName?: string;
+    packageVersion?: string;
+    packageUrl?: string;
   } = {},
 ): string {
   const replacements: Record<string, string> = {
     "laguarde-backend-url": laguardeOrigin,
     "laguarde-docs-url": publicLinks.docsUrl ?? "",
     "laguarde-install-url": publicLinks.installUrl ?? "",
-    "laguarde-archive-url": publicLinks.archiveUrl ?? "",
-    "laguarde-checksum-url": publicLinks.checksumUrl ?? "",
+    "laguarde-package-name": publicLinks.packageName ?? "",
+    "laguarde-package-version": publicLinks.packageVersion ?? "",
+    "laguarde-package-url": publicLinks.packageUrl ?? "",
   };
   let configured = source;
   for (const [name, value] of Object.entries(replacements)) {

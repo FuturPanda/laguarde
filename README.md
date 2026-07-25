@@ -28,16 +28,39 @@ API.
 
 ## Quick start
 
-Requires [Bun](https://bun.sh/).
+For a local MCP installation, use Node.js 24 or newer:
+
+```bash
+npx -y laguarde-mcp@0.1.0
+```
+
+Normally your MCP client launches that command as a stdio server. Laguarde
+stores its SQLite database and decision evidence in `.laguarde/` in the current
+project, and exposes the optional dashboard at <http://localhost:3000>.
+
+Conceptual MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "laguarde": {
+      "command": "npx",
+      "args": ["-y", "laguarde-mcp@0.1.0"]
+    }
+  }
+}
+```
+
+For repository development, install [Bun](https://bun.sh/) and run:
 
 ```bash
 bun install
+bun run build
 bun run start
 ```
 
-Open <http://localhost:3000>. The MCP endpoint is
-`http://localhost:3000/mcp`, and agent-facing discovery is available at
-<http://localhost:3000/llms.txt>.
+The HTTP MCP endpoint is `http://localhost:3000/mcp`, and agent-facing
+discovery is available at <http://localhost:3000/llms.txt>.
 
 Onboarding surfaces:
 
@@ -57,9 +80,10 @@ bun run export:onboarding
 
 See [`docs/s3-onboarding.md`](docs/s3-onboarding.md).
 
-The first start creates `laguarde.db`, seeds an example team context, and adds
-ten policies. Set `LAGUARDE_DB_PATH` and `LAGUARDE_EVIDENCE_DIR` to place
-persistent data elsewhere.
+The first start creates `.laguarde/laguarde.db`, seeds an example team context,
+and adds ten policies. Set `LAGUARDE_DATA_DIR`, or the more specific
+`LAGUARDE_DB_PATH` and `LAGUARDE_EVIDENCE_DIR`, to place persistent data
+elsewhere.
 
 ## Agent workflow
 
@@ -89,9 +113,10 @@ flowchart LR
   R --> D
 ```
 
-The implementation uses Bun, TypeScript, Express, SQLite, and the standard MCP
-SDK. Policy types share one revisioned model, while category-specific
-configuration is stored in `fields`.
+The published CLI uses Node.js, TypeScript, Express, SQLite, and the standard
+MCP SDK. Bun remains the repository's development and test runner. Policy types
+share one revisioned model, while category-specific configuration is stored in
+`fields`.
 
 ## Important enforcement boundary
 

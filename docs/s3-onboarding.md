@@ -1,7 +1,7 @@
 # Publish the onboarding pages with S3
 
-The static bundle lets an agent download and start Laguarde locally. No hosted
-Laguarde server URL is required.
+The static bundle tells an agent how to configure the published npm package. No
+hosted Laguarde server URL, ZIP, or checksum file is required.
 
 ## 1. Export
 
@@ -14,22 +14,19 @@ configuration publishes:
 
 - human documentation: `https://www.futur-panda.dev/laguarde/docs`;
 - agent contract: `https://www.futur-panda.dev/laguarde/install`;
-- ZIP: `https://www.futur-panda.dev/laguarde/zip`;
-- checksum: the configured `filedn.eu` object.
+- npm package: `laguarde-mcp@0.1.0`.
 
 This creates:
 
 ```text
 static-onboarding/
 ├── index.html           # human guide
-├── install              # agent contract, text/plain
-├── laguarde.zip         # local server source package
-└── laguarde.zip.sha256  # integrity checksum
+└── install              # agent contract, text/plain
 ```
 
-The agent resolves the archive URLs relative to the `/install` URL, verifies the
-checksum, extracts the server inside the current project, starts it with Docker
-or Bun, and connects its MCP client to localhost.
+The agent reads `/install`, verifies the package identity through npm, and adds
+a project-scoped stdio MCP configuration using
+`npx -y laguarde-mcp@0.1.0`.
 
 ## 2. Upload
 
@@ -41,15 +38,6 @@ aws s3 cp static-onboarding/index.html s3://YOUR-BUCKET/index.html \
 aws s3 cp static-onboarding/install s3://YOUR-BUCKET/install \
   --content-type "text/plain; charset=utf-8" \
   --cache-control "no-store"
-
-aws s3 cp static-onboarding/laguarde.zip s3://YOUR-BUCKET/laguarde.zip \
-  --content-type "application/zip" \
-  --cache-control "no-store"
-
-aws s3 cp static-onboarding/laguarde.zip.sha256 \
-  s3://YOUR-BUCKET/laguarde.zip.sha256 \
-  --content-type "text/plain; charset=utf-8" \
-  --cache-control "no-store"
 ```
 
 Configure `index.html` as the CloudFront default root object. Keep the S3
@@ -59,3 +47,6 @@ After publishing:
 
 - send the CloudFront root URL to humans;
 - send `https://YOUR-CLOUDFRONT-DOMAIN/install` to agents.
+
+Publish the npm package before uploading these pages so the pinned command is
+available when an agent follows the contract.

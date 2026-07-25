@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "laguarde",
+      "name": "laguarde-mcp",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.29.0",
         "express": "^4.22.2",

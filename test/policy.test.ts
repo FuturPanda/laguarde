@@ -4,7 +4,7 @@ import { LaguardeService } from "../src/service.js";
 import { globMatches } from "../src/policy.js";
 import {
   buildAgentInstallContract,
-  buildLocalAgentInstallContract,
+  buildNpmAgentInstallContract,
 } from "../src/install.js";
 import {
   buildStaticHumanGuide,
@@ -47,8 +47,9 @@ describe("agent installation contract", () => {
       '<meta name="laguarde-backend-url" content="" />',
       '<meta name="laguarde-docs-url" content="" />',
       '<meta name="laguarde-install-url" content="" />',
-      '<meta name="laguarde-archive-url" content="" />',
-      '<meta name="laguarde-checksum-url" content="" />',
+      '<meta name="laguarde-package-name" content="" />',
+      '<meta name="laguarde-package-version" content="" />',
+      '<meta name="laguarde-package-url" content="" />',
       '<a class="brand" href="/guide">',
     ].join("");
     const html = buildStaticHumanGuide(
@@ -65,31 +66,28 @@ describe("agent installation contract", () => {
     ).toThrow();
   });
 
-  test("builds a URL-independent local installation contract", () => {
-    const contract = buildLocalAgentInstallContract();
+  test("builds a project-scoped npm installation contract", () => {
+    const contract = buildNpmAgentInstallContract();
 
-    expect(contract).toContain("ARCHIVE_URL: ./laguarde.zip");
-    expect(contract).toContain(
-      "CHECKSUM_URL: ./laguarde.zip.sha256",
-    );
-    expect(contract).toContain("docker compose up -d --build");
-    expect(contract).toContain("bun install --frozen-lockfile");
-    expect(contract).toContain("http://127.0.0.1:<PORT>/mcp");
-    expect(contract).not.toContain("https://laguarde.example");
+    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.1.0");
+    expect(contract).toContain("COMMAND: npx");
+    expect(contract).toContain('"args": ["-y", "laguarde-mcp@0.1.0"]');
+    expect(contract).toContain("Require Node.js 24 or newer");
+    expect(contract).toContain("Prefer project/workspace MCP configuration");
+    expect(contract).toContain("It does not authorize elevated privileges");
+    expect(contract).not.toContain("SHA-256");
   });
 
-  test("uses explicit public archive and checksum URLs", () => {
-    const contract = buildLocalAgentInstallContract({
-      archiveUrl: "https://example.test/zip",
-      checksumUrl: "https://cdn.example.test/laguarde.zip.sha256",
+  test("pins an explicitly configured npm package version", () => {
+    const contract = buildNpmAgentInstallContract({
+      packageName: "@example/laguarde",
+      packageVersion: "2.3.4",
     });
 
     expect(contract).toContain(
-      "ARCHIVE_URL: https://example.test/zip",
+      "NPM_PACKAGE: @example/laguarde@2.3.4",
     );
-    expect(contract).toContain(
-      "CHECKSUM_URL: https://cdn.example.test/laguarde.zip.sha256",
-    );
+    expect(contract).toContain('"@example/laguarde@2.3.4"');
   });
 });
 

@@ -1,6 +1,7 @@
 {
   "docsUrl": "https://www.futur-panda.dev/laguarde/docs",
   "installUrl": "https://www.futur-panda.dev/laguarde/install",
-  "archiveUrl": "https://www.futur-panda.dev/laguarde/zip",
-  "checksumUrl": "https://filedn.eu/lXV6sgT96YA0ez7KJj1gNJy/laguard/laguarde.zip.sha256"
+  "packageName": "laguarde-mcp",
+  "packageVersion": "0.1.0",
+  "packageUrl": "https://www.npmjs.com/package/laguarde-mcp"
 }

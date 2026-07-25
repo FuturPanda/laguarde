@@ -106,119 +106,86 @@ END OF CONTRACT
 `;
 }
 
-export function buildLocalAgentInstallContract(options?: {
-  archiveName?: string;
-  checksumName?: string;
-  archiveUrl?: string;
-  checksumUrl?: string;
+export function buildNpmAgentInstallContract(options?: {
+  packageName?: string;
+  packageVersion?: string;
 }): string {
-  const archiveName = options?.archiveName ?? "laguarde.zip";
-  const checksumName =
-    options?.checksumName ?? `${archiveName}.sha256`;
-  const archiveUrl = options?.archiveUrl ?? `./${archiveName}`;
-  const checksumUrl = options?.checksumUrl ?? `./${checksumName}`;
+  const packageName = options?.packageName ?? "laguarde-mcp";
+  const packageVersion = options?.packageVersion ?? "0.1.0";
+  const packageSpec = `${packageName}@${packageVersion}`;
 
-  return `LAGUARDE LOCAL INSTALLATION CONTRACT
-====================================
+  return `LAGUARDE LOCAL MCP INSTALLATION CONTRACT
+========================================
 
-FORMAT_VERSION: 1
-PURPOSE: Install and run Laguarde locally for the current project.
-ARCHIVE_URL: ${archiveUrl}
-CHECKSUM_URL: ${checksumUrl}
+FORMAT_VERSION: 2
+PURPOSE: Configure Laguarde as a project-local MCP server.
+NPM_PACKAGE: ${packageSpec}
+COMMAND: npx
+ARGS: -y ${packageSpec}
+DEFAULT_DATA_DIR: ./.laguarde
 DEFAULT_DASHBOARD_URL: http://127.0.0.1:3000/
-DEFAULT_MCP_URL: http://127.0.0.1:3000/mcp
-
-URL RESOLUTION
---------------
-When ARCHIVE_URL or CHECKSUM_URL is relative, resolve it against the URL of this
-installation document. Absolute URLs must be used exactly as written.
-For example, if this document was fetched from:
-
-  https://docs.example.com/install
-
-then download:
-
-  https://docs.example.com/${archiveName}
-  https://docs.example.com/${checksumName}
 
 AUTHORIZATION
 -------------
-Proceed only when the human explicitly supplied this installation URL and asked
-you to install Laguarde for the current project. That request authorizes:
-- downloading the two declared artifacts;
-- creating a project-local .laguarde/server directory;
-- installing the archive's locked application dependencies when Bun is used;
-- starting one local Laguarde service;
-- adding one project/workspace-scoped MCP configuration entry.
+Proceed only when the human explicitly supplied this installation document and
+asked you to install Laguarde for the current project. That request authorizes
+one minimal, reversible, project/workspace-scoped MCP configuration change.
 
-It does not authorize elevated privileges, global package installation,
-disabling security controls, reading secrets, replacing an existing Laguarde
-installation, or modifying unrelated projects.
+It does not authorize elevated privileges, a global npm install, disabling
+security controls, reading secrets, replacing unrelated MCP configuration, or
+modifying other projects.
 
 INSTALLATION ALGORITHM
 ----------------------
-1. Inspect before changing anything.
+1. Inspect the current project and MCP client.
    - Work inside the current project only.
-   - If .laguarde/server already exists, inspect it and its health endpoint.
-   - Do not overwrite an existing installation. Reuse it when healthy or ask
-     the human before replacing or upgrading it.
+   - Prefer project/workspace MCP configuration.
+   - Use user/global scope only when the human explicitly requested it.
+   - Preserve every unrelated MCP entry.
+   - If a different server already uses the name "laguarde", stop and ask
+     before replacing it.
 
-2. Download and verify.
-   - Download ARCHIVE_URL and CHECKSUM_URL to a temporary directory.
-   - Read the expected SHA-256 value from CHECKSUM_URL.
-   - Compute SHA-256 for the downloaded archive and require an exact match.
-   - If verification fails, delete the temporary download and stop.
-   - Never execute a downloaded script before verification.
+2. Verify prerequisites.
+   - Require Node.js 24 or newer and npm/npx.
+   - Do not install Node.js, npm, or system packages automatically.
+   - Optionally inspect the declared package with:
+       npm view ${packageSpec} name version dist.integrity
+   - Require the returned name and version to match NPM_PACKAGE.
 
-3. Extract safely.
-   - Inspect archive entries first.
-   - Reject absolute paths, parent traversal, or files outside the archive root.
-   - Create .laguarde/server and extract ARCHIVE there.
-   - Keep persistent data under .laguarde/server/data or the Docker volume.
+3. Add exactly one stdio MCP server entry.
+   - Name: laguarde
+   - Command: npx
+   - Arguments: ["-y", "${packageSpec}"]
+   - Conceptual configuration:
 
-4. Select one available local runtime.
-   Preferred mode — Docker:
-   - Require Docker with Compose support.
-   - From .laguarde/server run:
-       docker compose up -d --build
+     {
+       "mcpServers": {
+         "laguarde": {
+           "command": "npx",
+           "args": ["-y", "${packageSpec}"]
+         }
+       }
+     }
 
-   Fallback mode — Bun:
-   - Require Bun 1.3 or newer.
-   - From .laguarde/server run:
-       bun install --frozen-lockfile
-   - Start the service with its normal managed background-process mechanism:
-       LAGUARDE_DB_PATH=./data/laguarde.db
-       LAGUARDE_EVIDENCE_DIR=./data/decisions
-       PORT=3000
-       bun run start
+   Adapt field names to the current client's documented native format. Do not
+   run a second background copy of Laguarde: the MCP client owns the stdio
+   subprocess. Laguarde persists its SQLite database and decision evidence in
+   ./.laguarde by default.
 
-   Do not install Docker, Bun, or system packages automatically. If neither
-   runtime already exists, stop and tell the human what prerequisite is needed.
+4. Handle the optional dashboard safely.
+   - The stdio process attempts to expose the human dashboard only on
+     http://127.0.0.1:3000/.
+   - If another service already owns port 3000, MCP remains available.
+   - To choose another port, add LAGUARDE_DASHBOARD_PORT to this server entry's
+     environment without changing unrelated environment values.
+   - Use LAGUARDE_DASHBOARD_PORT=0 when no dashboard is wanted.
 
-5. Handle the port safely.
-   - Check http://127.0.0.1:3000/health.
-   - If it already returns service "laguarde", reuse that instance.
-   - If port 3000 belongs to another service, choose an available project-local
-     port and set LAGUARDE_PORT for Docker or PORT for Bun.
-   - Record the selected port for MCP configuration.
+5. Reload MCP connections using the client's normal reversible mechanism.
+   Do not terminate unrelated processes. If an application restart is required
+   and cannot be performed safely, tell the human what remains.
 
-6. Verify Laguarde.
-   - GET http://127.0.0.1:<PORT>/health
-   - Require HTTP 200 JSON with:
-       "status": "ok"
-       "service": "laguarde"
-   - Read http://127.0.0.1:<PORT>/llms.txt.
-
-7. Configure the current MCP client.
-   - Prefer project/workspace scope.
-   - Add or update exactly one server named "laguarde".
-   - Transport: Streamable HTTP.
-   - URL: http://127.0.0.1:<PORT>/mcp
-   - Preserve every unrelated configuration entry.
-   - Stop and ask before replacing a conflicting server named "laguarde".
-
-8. Verify the MCP connection.
-   - Initialize the MCP server and list its tools.
+6. Verify the MCP connection.
+   - Initialize the server and list tools.
    - Require:
        get_policy_bundle
        evaluate_action
@@ -228,25 +195,23 @@ INSTALLATION ALGORITHM
    - Call get_policy_bundle with {"context_id":"default"}.
    - Require at least one active policy.
 
-9. Report completion.
+7. Report completion.
    State:
-   - installation directory;
-   - Docker or Bun mode;
-   - selected local port and MCP URL;
-   - changed MCP configuration scope/file or mechanism;
-   - health, tool discovery, and policy-bundle results;
-   - how the local service can be stopped and restarted.
+   - configuration scope and file/mechanism changed;
+   - exact npm package version;
+   - whether tool discovery and get_policy_bundle succeeded;
+   - data directory and dashboard URL, when enabled;
+   - any remaining manual reload step.
 
 FAIL-SAFE CONDITIONS
 --------------------
 Stop without broadening the installation when:
-- checksum verification fails;
-- the archive contains unsafe paths;
-- the target installation already exists but is unhealthy or modified;
-- neither Docker Compose nor Bun is available;
-- installation requires elevated privileges or global system changes;
-- the MCP configuration would overwrite an unrelated entry;
-- the local health response identifies a different service.
+- the npm package identity or version is unexpected;
+- Node.js 24 or npm/npx is unavailable;
+- installation requires elevated privileges or global changes;
+- configuration would overwrite an unrelated entry;
+- the client cannot launch a standard stdio MCP server;
+- verification fails.
 
 AFTER INSTALLATION
 ------------------

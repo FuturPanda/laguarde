@@ -4,28 +4,45 @@
 
 Prerequisites:
 
-- Bun 1.3 or newer;
+- Node.js 24 or newer with npm/npx;
 - a writable directory for the SQLite database and decision evidence.
 
-```bash
-bun install
-bun run start
+Configure the current MCP client to launch:
+
+```json
+{
+  "mcpServers": {
+    "laguarde": {
+      "command": "npx",
+      "args": ["-y", "laguarde-mcp@0.1.0"]
+    }
+  }
+}
 ```
 
-Laguarde listens on port `3000` by default. The relevant URLs are:
+The client owns the stdio subprocess. Laguarde also attempts to expose its
+dashboard on port `3000`; a port collision does not stop the MCP connection.
+The relevant local settings are:
 
-- dashboard: `http://localhost:3000/`;
-- MCP: `http://localhost:3000/mcp`;
-- discovery: `http://localhost:3000/llms.txt`;
-- health: `http://localhost:3000/health`.
+- dashboard: `http://127.0.0.1:3000/`;
+- persistent data: `./.laguarde/`.
 
 Configuration:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `3000` | HTTP port |
-| `LAGUARDE_DB_PATH` | `./laguarde.db` | SQLite database |
-| `LAGUARDE_EVIDENCE_DIR` | `./decisions` | Markdown decision evidence |
+| `LAGUARDE_DASHBOARD_PORT` | `3000` | Local dashboard port; set to `0` to disable |
+| `LAGUARDE_DATA_DIR` | `./.laguarde` | Persistent data directory |
+| `LAGUARDE_DB_PATH` | `<data-dir>/laguarde.db` | SQLite database override |
+| `LAGUARDE_EVIDENCE_DIR` | `<data-dir>/decisions` | Markdown evidence override |
+
+For source development:
+
+```bash
+bun install
+bun run build
+bun run start
+```
 | `LAGUARDE_PUBLIC_URL` | request origin | Canonical public origin used in the agent installation contract |
 
 ## Team/self-hosted mode

@@ -10,8 +10,9 @@
     <meta name="laguarde-backend-url" content="" />
     <meta name="laguarde-docs-url" content="" />
     <meta name="laguarde-install-url" content="" />
-    <meta name="laguarde-archive-url" content="" />
-    <meta name="laguarde-checksum-url" content="" />
+    <meta name="laguarde-package-name" content="" />
+    <meta name="laguarde-package-version" content="" />
+    <meta name="laguarde-package-url" content="" />
     <link rel="alternate" type="text/plain" href="/install" data-public-link="install" title="Agent installation contract" />
     <link rel="alternate" type="text/plain" href="/llms.txt" data-backend-path="/llms.txt" title="Agent operating instructions" />
     <title>Laguarde Guide — Keep agents aligned with your team</title>
@@ -111,7 +112,7 @@
       }
       .copy { width: 100%; }
       .downloads { display: flex; gap: 8px; margin-top: 9px; }
-      .downloads a {
+      .downloads a, .downloads span {
         flex: 1; text-align: center; color: var(--muted); text-decoration: none;
         border: 1px solid var(--line); border-radius: 8px; padding: 8px;
         font-size: 12px;
@@ -217,8 +218,8 @@
             <div class="url" id="agent-url">…/install</div>
             <button class="button primary copy" id="copy-agent-url">Copy agent URL</button>
             <div class="downloads">
-              <a href="/laguarde.zip" data-public-link="archive">Download package</a>
-              <a href="/laguarde.zip.sha256" data-public-link="checksum">SHA-256</a>
+              <a href="https://www.npmjs.com/package/laguarde-mcp" data-public-link="package">npm package</a>
+              <span>No ZIP or checksum needed</span>
             </div>
             <p class="micro">Suggested message: “Install Laguarde for this project using this URL.”</p>
           </aside>
@@ -279,10 +280,9 @@
           </div>
           <div class="install-grid">
             <article class="install-box">
-              <h3>Local with Bun</h3>
-              <p>Good for individual use, evaluation, and a project-owned database.</p>
-              <pre><code>bun install
-bun run start</code></pre>
+              <h3>Local MCP with npm</h3>
+              <p>Run it from any MCP client with Node.js 24 or newer.</p>
+              <pre><code id="npm-command">npx -y laguarde-mcp@0.1.0</code></pre>
             </article>
             <article class="install-box">
               <h3>Team server with Docker</h3>
@@ -311,9 +311,10 @@ bun run start</code></pre>
       const publicLinks = {
         docs: document.querySelector('meta[name="laguarde-docs-url"]').content,
         install: document.querySelector('meta[name="laguarde-install-url"]').content || `${location.origin}/install`,
-        archive: document.querySelector('meta[name="laguarde-archive-url"]').content || `${location.origin}/laguarde.zip`,
-        checksum: document.querySelector('meta[name="laguarde-checksum-url"]').content || `${location.origin}/laguarde.zip.sha256`,
+        package: document.querySelector('meta[name="laguarde-package-url"]').content || "https://www.npmjs.com/package/laguarde-mcp",
       };
+      const packageName = document.querySelector('meta[name="laguarde-package-name"]').content || "laguarde-mcp";
+      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.1.0";
       document.querySelectorAll("[data-backend-path]").forEach(link => {
         link.href = new URL(link.dataset.backendPath, `${backendOrigin}/`).href;
       });
@@ -323,6 +324,7 @@ bun run start</code></pre>
       });
       const installUrl = publicLinks.install;
       document.getElementById("agent-url").textContent = installUrl;
+      document.getElementById("npm-command").textContent = `npx -y ${packageName}@${packageVersion}`;
       document.getElementById("copy-agent-url").addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(installUrl);

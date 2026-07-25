@@ -1,6 +1,6 @@
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express from "express";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApiRouter } from "./api.js";
 import type { PolicyStore } from "./db/store.js";
@@ -80,7 +80,9 @@ export function createApp(
 
 const entryPath = process.argv[1] ? resolve(process.argv[1]) : "";
 const isMain =
-  import.meta.main === true || fileURLToPath(import.meta.url) === entryPath;
+  (import.meta.main === true ||
+    fileURLToPath(import.meta.url) === entryPath) &&
+  ["server.ts", "server.js"].includes(basename(entryPath));
 
 if (isMain) {
   const { service, store } = createRuntime();
