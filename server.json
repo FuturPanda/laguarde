@@ -7,13 +7,13 @@
     "url": "https://github.com/FuturPanda/laguarde",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "websiteUrl": "https://www.futur-panda.dev/laguarde/docs",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "laguarde-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "transport": {
         "type": "stdio"
       }

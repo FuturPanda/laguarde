@@ -69,9 +69,9 @@ describe("agent installation contract", () => {
   test("builds a project-scoped npm installation contract", () => {
     const contract = buildNpmAgentInstallContract();
 
-    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.2.0");
+    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.2.1");
     expect(contract).toContain("COMMAND: npx");
-    expect(contract).toContain('"args": ["-y", "laguarde-mcp@0.2.0"]');
+    expect(contract).toContain('"args": ["-y", "laguarde-mcp@0.2.1"]');
     expect(contract).toContain("Require Node.js 24 or newer");
     expect(contract).toContain("Prefer project/workspace MCP configuration");
     expect(contract).toContain("It does not authorize elevated privileges");
@@ -190,6 +190,35 @@ describe("audit and human review", () => {
 });
 
 describe("feedback convergence", () => {
+  test("lets a human merge a pending proposal into a new revision immediately", () => {
+    const { store, service } = setup();
+    const initial = store.getGuideline("code-no-any")!;
+    const proposal = service.proposePreference({
+      scope_kind: "code_rule",
+      scope_id: "code-no-any",
+      title: "Allow a contextual exception",
+      observation: "The frontend test harness needs a pragmatic exception.",
+      suggested_edit:
+        "Prefer precise types, but permit `any` in frontend-test when it is the clearest practical type.",
+      proposed_by: "Agent",
+    });
+
+    expect(proposal.state).toBe("pending");
+    expect(proposal.convergence_count).toBe(1);
+
+    const accepted = store.reviewProposal(
+      proposal.id,
+      "accepted",
+      "dashboard",
+    );
+    const revised = store.getGuideline("code-no-any")!;
+
+    expect(accepted?.state).toBe("accepted");
+    expect(revised.current_revision_no).toBe(initial.current_revision_no + 1);
+    expect(revised.body).toContain("frontend-test");
+    store.close();
+  });
+
   test("promotes three observations and creates a ratified revision", () => {
     const { store, service } = setup();
     const initial = store.getGuideline("code-no-any")!;
@@ -242,17 +271,6 @@ describe("feedback convergence", () => {
       proposed_by: "Alice",
     });
 
-    service.proposePreference({
-      existing_proposal_id: proposal.id,
-      observation: "Do not replace CI during unrelated maintenance.",
-      proposed_by: "Bob",
-    });
-    service.proposePreference({
-      existing_proposal_id: proposal.id,
-      observation: "CI migrations need a separate decision.",
-      proposed_by: "Carol",
-    });
-
     const merged = store.reviewProposal(
       proposal.id,
       "accepted",
@@ -265,7 +283,7 @@ describe("feedback convergence", () => {
     expect(created?.body).toContain("explicit human approval");
     expect(created?.tags).toContain("feedback");
     expect(created?.fields.level).toBe("limited");
-    expect(created?.status).toBe("draft");
+    expect(created?.status).toBe("active");
     expect(created?.current_revision_no).toBe(1);
     store.close();
   });

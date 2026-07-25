@@ -46,7 +46,7 @@ export function createApp(
     res.json({
       status: "ok",
       service: "laguarde",
-      version: "0.2.0",
+      version: "0.2.1",
       guidelines: store.guidelineCount(),
     });
   });

@@ -160,18 +160,6 @@
       .actions { display: flex; gap: 6px; align-items: flex-start; flex-shrink: 0; }
       .empty { text-align: center; color: var(--dim); padding: 60px 20px; }
 
-      .evaluator {
-        display: grid; grid-template-columns: 180px 1fr; gap: 12px;
-        border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 20px;
-      }
-      .evaluator .wide { grid-column: 1 / -1; }
-      .evaluator textarea { min-height: 74px; resize: vertical; width: 100%; }
-      .result { border-left: 3px solid var(--line); padding: 12px 14px; background: #09130f; border-radius: 7px; }
-      .result.allowed { border-color: var(--allowed); }
-      .result.limited { border-color: var(--limited); }
-      .result.approval { border-color: var(--approval); }
-      .result.forbidden { border-color: var(--forbidden); }
-
       dialog {
         width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 40px);
         overflow: auto; border: 1px solid #385044; border-radius: 14px;
@@ -204,8 +192,8 @@
         .hero-main { padding: 22px; }
         .panel { padding: 14px; }
         .panel-head, .card-top { align-items: flex-start; flex-direction: column; }
-        .evaluator, .form-grid { grid-template-columns: 1fr; }
-        .evaluator .wide, label.full { grid-column: auto; }
+        .form-grid { grid-template-columns: 1fr; }
+        label.full { grid-column: auto; }
         .status span:last-child { display: none; }
       }
     </style>
@@ -241,7 +229,7 @@
         <div class="hero-side">
           <div class="metric"><span>Active policies</span><strong id="metric-policies">—</strong></div>
           <div class="metric"><span>Policy revisions</span><strong id="metric-revisions">—</strong></div>
-          <div class="metric"><span>Feedback candidates</span><strong id="metric-proposals">—</strong></div>
+          <div class="metric"><span>Open proposals</span><strong id="metric-proposals">—</strong></div>
         </div>
       </section>
 
@@ -299,7 +287,7 @@
     <div class="toast" id="toast" role="status"></div>
 
     <script>
-      const state = { tab: "policies", guidelines: [], proposals: [], evaluation: null };
+      const state = { tab: "policies", guidelines: [], proposals: [] };
       const view = document.getElementById("view");
       const dialog = document.getElementById("policy-dialog");
 
@@ -320,8 +308,6 @@
         element.textContent = message; element.classList.add("show");
         setTimeout(() => element.classList.remove("show"), 2200);
       };
-      const lines = (value) => value.split("\n").map(v => v.trim()).filter(Boolean);
-
       async function refresh() {
         const [health, policies, proposals] = await Promise.all([
           api("/health"), api("/api/guidelines"), api("/api/proposals"),
@@ -332,7 +318,7 @@
         document.querySelector("#server-status span:last-child").textContent = `online · ${health.version}`;
         document.getElementById("metric-policies").textContent = state.guidelines.filter(p => p.status === "active").length;
         document.getElementById("metric-revisions").textContent = state.guidelines.reduce((total, policy) => total + policy.current_revision_no, 0);
-        document.getElementById("metric-proposals").textContent = state.proposals.filter(p => p.state === "promoted_candidate").length;
+        document.getElementById("metric-proposals").textContent = state.proposals.filter(p => ["pending", "promoted_candidate"].includes(p.state)).length;
         document.getElementById("count-policies").textContent = state.guidelines.length;
         document.getElementById("count-feedback").textContent = state.proposals.length;
         render();
@@ -378,59 +364,23 @@
                   </div>
                 </div>
               </article>`).join("") || `<div class="empty">No policies yet.</div>`}
-          </div>
-          <div class="panel-head">
-            <div><h2 class="panel-title">Policy test bench</h2><p class="panel-subtitle">Human-only workspace: test policy coverage, then add a missing policy or revise a matched one.</p></div>
-          </div>
-          <form class="evaluator" id="evaluate-form">
-            <select class="field" id="action-type">
-              ${["read","edit","delete","command","dependency","migration","auth","review","bootstrap"].map(v => `<option value="${v}">${v}</option>`).join("")}
-            </select>
-            <input class="field" id="action-summary" placeholder="Describe the intended action and why" required />
-            <textarea class="field wide" id="action-targets" placeholder="Repository-relative targets, one per line&#10;src/service.ts"></textarea>
-            <textarea class="field wide" id="action-commands" placeholder="Exact commands, one per line (never include secrets)"></textarea>
-            <textarea class="field wide" id="action-dependencies" placeholder="Dependencies changed, one per line"></textarea>
-            <div class="toolbar wide">
-              <button class="btn btn-primary" type="submit">Inspect policy coverage</button>
-            </div>
-            <div class="wide" id="evaluation-result">${renderEvaluation()}</div>
-          </form>`;
-      }
-
-      function renderEvaluation() {
-        const result = state.evaluation;
-        if (!result) return `<div class="result"><div class="summary">Describe a scenario to inspect which policies cover it. This does not create an agent decision or audit record.</div></div>`;
-        const matched = result.matched_rules || [];
-        return `<div class="result ${esc(result.level)}">
-          <div class="badges"><span class="badge ${esc(result.level)}">${esc(result.level)}</span></div>
-          <h3>${esc(result.rationale)}</h3>
-          <div class="summary">${esc(result.next_action)}</div>
-          <div class="grid">
-            ${matched.map(rule => `<article class="card">
-              <div class="mono">${esc(rule.guideline_id)} · ${esc(rule.revision_id)}</div>
-              <h3>${esc(rule.name)}</h3>
-              <div class="summary">${esc(rule.reason)}</div>
-              <div class="actions"><button class="btn btn-small" data-action="edit-policy" data-id="${esc(rule.guideline_id)}">Revise this policy</button></div>
-            </article>`).join("") || `<div class="empty">No policy matched this scenario.</div>`}
-          </div>
-          ${matched.length === 0 ? `<div class="toolbar"><button class="btn btn-primary" type="button" data-action="new-policy-from-evaluation">Add policy for this gap</button></div>` : ""}
-        </div>`;
+          </div>`;
       }
 
       function renderFeedback() {
         view.innerHTML = `
           <div class="panel-head">
-            <div><h2 class="panel-title">Feedback convergence</h2><p class="panel-subtitle">Agent feedback converges here. One human click creates a policy or merges a new revision.</p></div>
+            <div><h2 class="panel-title">Agent proposals</h2><p class="panel-subtitle">Review agent feedback and merge it immediately. More observations add context, but never block a human decision.</p></div>
           </div>
           <div class="grid">
             ${state.proposals.map(proposal => `
               <article class="card">
                 <div class="card-top">
                   <div>
-                    <div class="mono">${esc(proposal.id)} · ${proposal.convergence_count}/3 observations</div>
+                    <div class="mono">${esc(proposal.id)} · ${proposal.convergence_count} ${proposal.convergence_count === 1 ? "observation" : "observations"}</div>
                     <h3>${esc(proposal.title)}</h3>
                     <div class="summary">${esc(proposal.suggested_edit)}</div>
-                    <div class="summary">${proposal.scope_id ? `Will create a new revision of ${esc(proposal.scope_id)}.` : `Will create a new ${esc(proposal.scope_kind.replaceAll("_", " "))} policy.`}</div>
+                    <div class="summary">${proposal.scope_id ? `Merge target: new revision of ${esc(proposal.scope_id)}.` : `Merge target: new ${esc(proposal.scope_kind.replaceAll("_", " "))} policy.`}</div>
                     <div class="badges">
                       <span class="badge ${esc(proposal.state)}">${esc(proposal.state.replaceAll("_", " "))}</span>
                       <span class="badge">${esc(proposal.scope_id || proposal.scope_kind)}</span>
@@ -440,46 +390,12 @@
                   ${["pending","promoted_candidate"].includes(proposal.state) ? `
                     <div class="actions">
                       <button class="btn btn-small" data-action="observe-proposal" data-id="${esc(proposal.id)}">Add observation</button>
-                      ${proposal.state === "promoted_candidate" ? `<button class="btn btn-small btn-primary" data-action="merge-proposal" data-id="${esc(proposal.id)}">Merge</button>` : ""}
+                      <button class="btn btn-small btn-primary" data-action="merge-proposal" data-id="${esc(proposal.id)}">${proposal.scope_id ? "Merge revision" : "Create policy"}</button>
                       <button class="btn btn-small btn-danger" data-action="review-proposal" data-status="rejected" data-id="${esc(proposal.id)}">Reject</button>
                     </div>` : ""}
                 </div>
               </article>`).join("") || `<div class="empty">No reusable preferences proposed yet. Agents submit them through MCP.</div>`}
           </div>`;
-      }
-
-      function actionPayload() {
-        return {
-          context_id: "default",
-          action_type: document.getElementById("action-type").value,
-          summary: document.getElementById("action-summary").value,
-          targets: lines(document.getElementById("action-targets").value),
-          commands: lines(document.getElementById("action-commands").value),
-          dependencies: lines(document.getElementById("action-dependencies").value),
-          requested_by: "dashboard-human",
-        };
-      }
-
-      function safePolicyId(value) {
-        const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 62);
-        return `guard-${slug || "policy-gap"}`;
-      }
-
-      function policySeedFromEvaluation() {
-        const payload = actionPayload();
-        const match = { action_types: [payload.action_type] };
-        if (payload.targets.length) match.target_patterns = payload.targets;
-        if (payload.commands.length) match.command_patterns = payload.commands;
-        if (payload.dependencies.length) match.dependency_patterns = payload.dependencies;
-        return {
-          id: safePolicyId(payload.summary),
-          kind: "general_rule",
-          name: payload.summary,
-          summary: `Human-authored coverage for ${payload.action_type} actions.`,
-          body: `Define the expected behavior for: ${payload.summary}`,
-          tags: ["human-insight"],
-          fields: { level: state.evaluation?.level || "limited", match },
-        };
       }
 
       function openPolicy(policy, seed = null) {
@@ -509,7 +425,6 @@
         const action = button.dataset.action;
         try {
           if (action === "new-policy") openPolicy();
-          if (action === "new-policy-from-evaluation") openPolicy(null, policySeedFromEvaluation());
           if (action === "edit-policy") openPolicy(state.guidelines.find(p => p.id === button.dataset.id));
           if (action === "delete-policy" && confirm("Archive this policy? Its revision history will be retained.")) {
             await api(`/api/guidelines/${encodeURIComponent(button.dataset.id)}`, { method: "DELETE" });
@@ -550,15 +465,6 @@
         document.querySelectorAll(".searchable").forEach(card => {
           card.style.display = card.dataset.search.includes(query) ? "" : "none";
         });
-      });
-
-      view.addEventListener("submit", async event => {
-        if (event.target.id !== "evaluate-form") return;
-        event.preventDefault();
-        try {
-          state.evaluation = await api("/api/evaluate", { method: "POST", body: JSON.stringify(actionPayload()) });
-          document.getElementById("evaluation-result").innerHTML = renderEvaluation();
-        } catch (error) { alert(error.message); }
       });
 
       document.getElementById("policy-form").addEventListener("submit", async event => {

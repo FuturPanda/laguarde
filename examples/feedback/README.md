@@ -9,8 +9,10 @@ corrections about the existing `code-no-any` policy.
 4. A maintainer accepts it in the dashboard.
 5. Laguarde creates `code-no-any#v2` and keeps `code-no-any#v1` immutable.
 
+The maintainer could also accept the proposal after its first observation; the
+three-observation example demonstrates promotion, not an acceptance gate.
+
 Alice appears twice. Both observations count, but the dashboard displays
 `["Alice", "Bob", "Alice"]` so the reviewer can judge the actual convergence.
 
 At no point may the agent directly update the accepted policy.
-

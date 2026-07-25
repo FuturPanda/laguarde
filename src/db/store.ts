@@ -644,12 +644,6 @@ export class PolicyStore {
     if (!["pending", "promoted_candidate"].includes(proposal.state)) {
       throw new Error(`Proposal is already ${proposal.state}`);
     }
-    if (status === "accepted" && proposal.convergence_count < 3) {
-      throw new Error(
-        "A proposal needs three observations before it can be accepted",
-      );
-    }
-
     const acceptedEdit = refinedEdit?.trim() || proposal.suggested_edit;
     const update = this.db.transaction(() => {
       if (status === "accepted") {
@@ -666,8 +660,7 @@ export class PolicyStore {
             summary: latestObservation ?? proposal.title,
             body: acceptedEdit,
             tags: ["feedback"],
-            status:
-              proposal.scope_kind === "general_rule" ? "draft" : "active",
+            status: "active",
             fields:
               proposal.scope_kind === "general_rule"
                 ? { level: "limited" }

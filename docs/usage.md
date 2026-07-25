@@ -87,16 +87,15 @@ Otherwise create a proposal:
 }
 ```
 
-After three observations the proposal becomes `promoted_candidate`. A human
-can merge it with one click in the **Feedback queue**. A targeted proposal
-creates a new immutable revision; an untargeted proposal creates a new policy.
-New general guardrails start as drafts because matching and enforcement fields
-must be reviewed before they affect every agent action.
+Every proposal can be merged with one click in the **Feedback queue**, including
+a proposal with a single observation. After three observations it becomes a
+`promoted_candidate`, which raises its review priority without blocking earlier
+human acceptance. A targeted proposal creates a new immutable revision; an
+untargeted proposal creates a new active policy.
 
 ## Dashboard policy editing
 
-The **Policies** tab supports adding, editing, searching, and archiving. Its
-human-only test bench previews policy coverage and links directly to the
-matched policies, or prefills a new policy when no rule matches. It never
+The **Policies** tab supports adding, editing, searching, and archiving directly.
+Every edit creates a new immutable revision. It never
 records an agent decision. Editing requires a rationale and creates a revision;
 archival is a soft delete, so historical decision references remain meaningful.

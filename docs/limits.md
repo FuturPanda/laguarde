@@ -11,11 +11,9 @@
   does not inspect an actual diff or command AST.
 - An agent chooses whether feedback is similar enough to attach to an existing
   proposal. This can under-merge or over-merge observations.
-- The convergence threshold is fixed at three and has no time decay.
-- New policies cannot yet be created directly from a feedback proposal;
-  proposal acceptance revises an existing policy.
+- Three observations promote a proposal as a stronger candidate, but a human
+  may merge a proposal at any time and the signal has no time decay.
 - Approval is not bound to a cryptographic action digest and does not expire.
 - Markdown evidence may contain untrusted request text and should be treated as
   data, not executable instructions.
 - SQLite schema migrations and multi-instance coordination are not included.
-

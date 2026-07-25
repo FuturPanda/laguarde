@@ -21,8 +21,8 @@ API.
 - Human approval for dependency, migration, deletion, and authentication
   actions.
 - SQLite decision records plus human-readable Markdown evidence.
-- Developer feedback convergence: three observations promote a proposal, but
-  only a human can create the accepted policy revision.
+- Developer feedback convergence: a human may merge any proposal immediately;
+  three observations promote it as a stronger candidate.
 - A dashboard for policy CRUD, decision evaluation/review, and feedback
   ratification.
 
@@ -31,7 +31,7 @@ API.
 For a local MCP installation, use Node.js 24 or newer:
 
 ```bash
-npx -y laguarde-mcp@0.2.0
+npx -y laguarde-mcp@0.2.1
 ```
 
 Normally your MCP client launches that command as a stdio server. Laguarde
@@ -45,7 +45,7 @@ Conceptual MCP configuration:
   "mcpServers": {
     "laguarde": {
       "command": "npx",
-      "args": ["-y", "laguarde-mcp@0.2.0"]
+      "args": ["-y", "laguarde-mcp@0.2.1"]
     }
   }
 }
@@ -112,7 +112,8 @@ flowchart LR
   P --> D[(SQLite)]
   P --> E[Markdown evidence]
   F[Developer feedback] --> Q[Proposal convergence]
-  Q -->|3 observations| H
+  Q -->|review at any time| H
+  Q -.->|3 observations promote priority| Q
   H -->|ratify| R[Immutable policy revision]
   R --> D
 ```

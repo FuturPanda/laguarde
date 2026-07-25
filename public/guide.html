@@ -282,7 +282,7 @@
             <article class="install-box">
               <h3>Local MCP with npm</h3>
               <p>Run it from any MCP client with Node.js 24 or newer.</p>
-              <pre><code id="npm-command">npx -y laguarde-mcp@0.2.0</code></pre>
+              <pre><code id="npm-command">npx -y laguarde-mcp@0.2.1</code></pre>
             </article>
             <article class="install-box">
               <h3>Team server with Docker</h3>
@@ -314,7 +314,7 @@
         package: document.querySelector('meta[name="laguarde-package-url"]').content || "https://www.npmjs.com/package/laguarde-mcp",
       };
       const packageName = document.querySelector('meta[name="laguarde-package-name"]').content || "laguarde-mcp";
-      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.2.0";
+      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.2.1";
       document.querySelectorAll("[data-backend-path]").forEach(link => {
         link.href = new URL(link.dataset.backendPath, `${backendOrigin}/`).href;
       });
