@@ -3,6 +3,10 @@
   "name": "dev.futur-panda/laguarde",
   "title": "Laguarde",
   "description": "Self-hostable policy control plane for AI coding agents.",
+  "repository": {
+    "url": "https://github.com/FuturPanda/laguarde",
+    "source": "github"
+  },
   "version": "0.2.0",
   "websiteUrl": "https://www.futur-panda.dev/laguarde/docs",
   "packages": [

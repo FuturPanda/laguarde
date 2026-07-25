@@ -80,6 +80,10 @@ bun run export:onboarding
 
 See [`docs/s3-onboarding.md`](docs/s3-onboarding.md).
 
+MCP Registry publication is automated through GitHub Actions after a one-time
+DNS authentication setup. See
+[`docs/registry-publishing.md`](docs/registry-publishing.md).
+
 The first start creates `.laguarde/laguarde.db`, seeds an example team context,
 and adds ten policies. Set `LAGUARDE_DATA_DIR`, or the more specific
 `LAGUARDE_DB_PATH` and `LAGUARDE_EVIDENCE_DIR`, to place persistent data
