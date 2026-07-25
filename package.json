@@ -5,7 +5,7 @@
   "description": "Self-hostable policy control plane for AI coding agents",
   "mcpName": "dev.futur-panda/laguarde",
   "bin": {
-    "laguarde": "./dist/stdio.js"
+    "laguarde": "dist/stdio.js"
   },
   "files": [
     "dist",
