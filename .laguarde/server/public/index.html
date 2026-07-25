@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Laguarde — policy control plane for AI coding agents"
+    />
+    <title>Laguarde — Agent policy control</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #e9f0e8;
+        --muted: #91a092;
+        --dim: #667168;
+        --bg: #07110d;
+        --panel: #0d1914;
+        --panel-2: #112019;
+        --line: #203229;
+        --accent: #a6f27c;
+        --accent-ink: #07110d;
+        --allowed: #72e59a;
+        --limited: #e6c96b;
+        --approval: #f0a565;
+        --forbidden: #f07878;
+        --radius: 14px;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 82% -10%, rgba(80, 145, 95, .16), transparent 32rem),
+          var(--bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      button, input, select, textarea { font: inherit; }
+      button { cursor: pointer; }
+      a { color: inherit; }
+
+      .shell { max-width: 1220px; margin: 0 auto; padding: 32px 24px 72px; }
+      header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 28px;
+      }
+      .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+      .header-link {
+        color: var(--muted); text-decoration: none; font-size: 12px;
+        border: 1px solid var(--line); border-radius: 999px; padding: 8px 11px;
+      }
+      .header-link:hover { color: var(--ink); border-color: #385044; }
+      .brandline { display: flex; align-items: center; gap: 12px; }
+      .mark {
+        width: 38px; height: 38px; border-radius: 11px;
+        display: grid; place-items: center;
+        background: var(--accent); color: var(--accent-ink);
+        font: 900 20px/1 ui-monospace, monospace;
+        box-shadow: 0 0 0 5px rgba(166, 242, 124, .08);
+      }
+      h1 { margin: 0; font-size: 25px; letter-spacing: -.04em; }
+      .tagline { margin: 5px 0 0 50px; color: var(--muted); font-size: 14px; }
+      .status {
+        display: flex; align-items: center; gap: 9px;
+        color: var(--muted); font: 12px ui-monospace, monospace;
+        border: 1px solid var(--line); border-radius: 999px;
+        padding: 8px 12px; background: rgba(13, 25, 20, .7);
+      }
+      .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+      .status.online .status-dot { background: var(--allowed); box-shadow: 0 0 12px var(--allowed); }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(280px, .5fr);
+        gap: 18px;
+        margin-bottom: 22px;
+      }
+      .hero-main, .hero-side, .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: linear-gradient(145deg, rgba(17, 32, 25, .94), rgba(10, 20, 15, .94));
+      }
+      .hero-main { padding: 28px 30px; }
+      .eyebrow {
+        color: var(--accent); text-transform: uppercase; letter-spacing: .14em;
+        font: 700 11px ui-monospace, monospace;
+      }
+      .hero h2 {
+        max-width: 700px; margin: 12px 0 10px;
+        font-size: clamp(29px, 4vw, 46px); line-height: 1.02; letter-spacing: -.055em;
+      }
+      .hero p { color: var(--muted); max-width: 670px; line-height: 1.6; margin: 0; }
+      .hero-side { padding: 22px; display: grid; gap: 12px; align-content: center; }
+      .metric { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--line); padding-bottom: 11px; }
+      .metric:last-child { border: 0; padding-bottom: 0; }
+      .metric span { color: var(--muted); font-size: 13px; }
+      .metric strong { font: 700 20px ui-monospace, monospace; }
+
+      .tabs {
+        display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 14px;
+        scrollbar-width: thin;
+      }
+      .tab {
+        border: 1px solid var(--line); background: transparent; color: var(--muted);
+        padding: 9px 14px; border-radius: 999px; white-space: nowrap;
+      }
+      .tab:hover { color: var(--ink); border-color: #385044; }
+      .tab.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+      .tab-count { opacity: .65; margin-left: 5px; font: 11px ui-monospace, monospace; }
+
+      .panel { padding: 20px; min-height: 320px; }
+      .panel-head {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 16px; margin-bottom: 18px;
+      }
+      .panel-title { margin: 0; font-size: 17px; letter-spacing: -.02em; }
+      .panel-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+      .toolbar { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+      .field, textarea.field {
+        color: var(--ink); background: #09130f; border: 1px solid var(--line);
+        border-radius: 9px; padding: 10px 12px; outline: none;
+      }
+      .field:focus { border-color: #5e806b; box-shadow: 0 0 0 3px rgba(166, 242, 124, .07); }
+      .search { min-width: 220px; }
+      .btn {
+        border: 1px solid var(--line); border-radius: 9px;
+        padding: 9px 13px; color: var(--ink); background: var(--panel-2);
+      }
+      .btn:hover { border-color: #476153; background: #172a20; }
+      .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 750; }
+      .btn-primary:hover { background: #b8ff91; border-color: #b8ff91; }
+      .btn-danger { color: var(--forbidden); }
+      .btn-small { padding: 6px 9px; font-size: 12px; }
+
+      .grid { display: grid; gap: 11px; }
+      .card {
+        border: 1px solid var(--line); border-radius: 11px;
+        padding: 16px; background: rgba(7, 17, 13, .6);
+      }
+      .card-top { display: flex; justify-content: space-between; gap: 18px; }
+      .card h3 { font-size: 15px; margin: 5px 0 7px; }
+      .mono { color: var(--dim); font: 11px ui-monospace, monospace; }
+      .summary { color: var(--muted); font-size: 13px; line-height: 1.5; }
+      .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+      .badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 4px 7px; border-radius: 6px; border: 1px solid var(--line);
+        color: var(--muted); font: 11px ui-monospace, monospace;
+      }
+      .badge.allowed { color: var(--allowed); border-color: rgba(114,229,154,.32); }
+      .badge.limited { color: var(--limited); border-color: rgba(230,201,107,.32); }
+      .badge.approval { color: var(--approval); border-color: rgba(240,165,101,.32); }
+      .badge.forbidden, .badge.rejected { color: var(--forbidden); border-color: rgba(240,120,120,.32); }
+      .badge.promoted_candidate, .badge.approved, .badge.accepted { color: var(--allowed); border-color: rgba(114,229,154,.32); }
+      .actions { display: flex; gap: 6px; align-items: flex-start; flex-shrink: 0; }
+      .empty { text-align: center; color: var(--dim); padding: 60px 20px; }
+
+      .evaluator {
+        display: grid; grid-template-columns: 180px 1fr; gap: 12px;
+        border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 20px;
+      }
+      .evaluator .wide { grid-column: 1 / -1; }
+      .evaluator textarea { min-height: 74px; resize: vertical; width: 100%; }
+      .result { border-left: 3px solid var(--line); padding: 12px 14px; background: #09130f; border-radius: 7px; }
+      .result.allowed { border-color: var(--allowed); }
+      .result.limited { border-color: var(--limited); }
+      .result.approval { border-color: var(--approval); }
+      .result.forbidden { border-color: var(--forbidden); }
+
+      dialog {
+        width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 40px);
+        overflow: auto; border: 1px solid #385044; border-radius: 14px;
+        background: #0d1914; color: var(--ink); padding: 0;
+        box-shadow: 0 30px 100px rgba(0,0,0,.6);
+      }
+      dialog::backdrop { background: rgba(0, 7, 3, .74); backdrop-filter: blur(4px); }
+      .modal-body { padding: 22px; }
+      .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+      .modal-head h2 { font-size: 19px; margin: 0; }
+      .close { border: 0; background: none; color: var(--muted); font-size: 22px; }
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+      label.full { grid-column: 1 / -1; }
+      label textarea { min-height: 90px; resize: vertical; }
+      .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+      .toast {
+        position: fixed; right: 20px; bottom: 20px; z-index: 20;
+        background: var(--ink); color: var(--bg); border-radius: 9px;
+        padding: 11px 14px; font-weight: 650; box-shadow: 0 15px 45px rgba(0,0,0,.4);
+        transform: translateY(90px); transition: transform .2s ease;
+      }
+      .toast.show { transform: translateY(0); }
+
+      @media (max-width: 760px) {
+        .shell { padding: 20px 14px 50px; }
+        header { align-items: center; }
+        .tagline { margin-left: 0; }
+        .hero { grid-template-columns: 1fr; }
+        .hero-main { padding: 22px; }
+        .panel { padding: 14px; }
+        .panel-head, .card-top { align-items: flex-start; flex-direction: column; }
+        .evaluator, .form-grid { grid-template-columns: 1fr; }
+        .evaluator .wide, label.full { grid-column: auto; }
+        .status span:last-child { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <div>
+          <div class="brandline">
+            <div class="mark">L</div>
+            <h1>Laguarde</h1>
+          </div>
+          <p class="tagline">Policy control for agents that ship code.</p>
+        </div>
+        <div class="header-actions">
+          <a class="header-link" href="/guide">Human guide</a>
+          <a class="header-link" href="/install">Agent install</a>
+          <div class="status" id="server-status">
+            <span class="status-dot"></span><span>checking control plane</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="hero-main">
+          <div class="eyebrow">Human authority, machine-readable</div>
+          <h2>Your team’s engineering judgment, available at every agent decision.</h2>
+          <p>
+            Version policies, gate risky actions, ratify recurring preferences,
+            and retain the exact evidence behind every decision.
+          </p>
+        </div>
+        <div class="hero-side">
+          <div class="metric"><span>Active policies</span><strong id="metric-policies">—</strong></div>
+          <div class="metric"><span>Pending approvals</span><strong id="metric-approvals">—</strong></div>
+          <div class="metric"><span>Feedback candidates</span><strong id="metric-proposals">—</strong></div>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="Dashboard sections">
+        <button class="tab active" data-tab="policies">Policies <span class="tab-count" id="count-policies">0</span></button>
+        <button class="tab" data-tab="decisions">Decision gate <span class="tab-count" id="count-decisions">0</span></button>
+        <button class="tab" data-tab="feedback">Feedback queue <span class="tab-count" id="count-feedback">0</span></button>
+      </nav>
+
+      <section class="panel" id="view"></section>
+    </main>
+
+    <dialog id="policy-dialog">
+      <form class="modal-body" id="policy-form">
+        <div class="modal-head">
+          <h2 id="policy-dialog-title">New policy</h2>
+          <button class="close" type="button" data-close aria-label="Close">×</button>
+        </div>
+        <input type="hidden" id="policy-editing" />
+        <div class="form-grid">
+          <label>ID<input class="field" id="policy-id" required placeholder="guard-example" /></label>
+          <label>Kind
+            <select class="field" id="policy-kind">
+              <option value="general_rule">General guardrail</option>
+              <option value="code_rule">Code rule</option>
+              <option value="project_init">Project init</option>
+              <option value="pr_review_guideline">PR review</option>
+            </select>
+          </label>
+          <label class="full">Name<input class="field" id="policy-name" required /></label>
+          <label class="full">Summary<input class="field" id="policy-summary" required /></label>
+          <label class="full">Policy body<textarea class="field" id="policy-body" required></textarea></label>
+          <label>Tags<input class="field" id="policy-tags" placeholder="security, commands" /></label>
+          <label>Level
+            <select class="field" id="policy-level">
+              <option value="allowed">Allowed</option>
+              <option value="limited">Limited</option>
+              <option value="approval">Approval required</option>
+              <option value="forbidden">Forbidden</option>
+            </select>
+          </label>
+          <label class="full">Category fields (JSON)
+            <textarea class="field" id="policy-fields" spellcheck="false">{}</textarea>
+          </label>
+          <label class="full" id="rationale-label">Revision rationale
+            <input class="field" id="policy-rationale" placeholder="Why this policy changed" />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" type="button" data-close>Cancel</button>
+          <button class="btn btn-primary" type="submit">Save policy</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script>
+      const state = { tab: "policies", guidelines: [], decisions: [], proposals: [], evaluation: null };
+      const view = document.getElementById("view");
+      const dialog = document.getElementById("policy-dialog");
+
+      const esc = (value = "") => String(value)
+        .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+      const api = async (path, options = {}) => {
+        const response = await fetch(path, {
+          ...options,
+          headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Request failed");
+        return data;
+      };
+      const toast = (message) => {
+        const element = document.getElementById("toast");
+        element.textContent = message; element.classList.add("show");
+        setTimeout(() => element.classList.remove("show"), 2200);
+      };
+      const lines = (value) => value.split("\n").map(v => v.trim()).filter(Boolean);
+
+      async function refresh() {
+        const [health, policies, decisions, proposals] = await Promise.all([
+          api("/health"), api("/api/guidelines"), api("/api/decisions"), api("/api/proposals"),
+        ]);
+        state.guidelines = policies.guidelines;
+        state.decisions = decisions.decisions;
+        state.proposals = proposals.proposals;
+        document.getElementById("server-status").classList.add("online");
+        document.querySelector("#server-status span:last-child").textContent = `online · ${health.version}`;
+        document.getElementById("metric-policies").textContent = state.guidelines.filter(p => p.status === "active").length;
+        document.getElementById("metric-approvals").textContent = state.decisions.filter(d => d.state === "pending_approval").length;
+        document.getElementById("metric-proposals").textContent = state.proposals.filter(p => p.state === "promoted_candidate").length;
+        document.getElementById("count-policies").textContent = state.guidelines.length;
+        document.getElementById("count-decisions").textContent = state.decisions.length;
+        document.getElementById("count-feedback").textContent = state.proposals.length;
+        render();
+      }
+
+      function render() {
+        document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === state.tab));
+        if (state.tab === "policies") renderPolicies();
+        if (state.tab === "decisions") renderDecisions();
+        if (state.tab === "feedback") renderFeedback();
+      }
+
+      function renderPolicies() {
+        const kindNames = {
+          general_rule: "Guardrail", code_rule: "Code rule",
+          project_init: "Project init", pr_review_guideline: "PR review",
+        };
+        view.innerHTML = `
+          <div class="panel-head">
+            <div><h2 class="panel-title">Versioned policy registry</h2><p class="panel-subtitle">Every edit creates an immutable revision.</p></div>
+            <div class="toolbar">
+              <input class="field search" id="policy-search" placeholder="Search policies" />
+              <button class="btn btn-primary" data-action="new-policy">New policy</button>
+            </div>
+          </div>
+          <div class="grid" id="policy-list">
+            ${state.guidelines.map(policy => `
+              <article class="card searchable" data-search="${esc(`${policy.id} ${policy.name} ${policy.summary} ${policy.tags.join(" ")}`.toLowerCase())}">
+                <div class="card-top">
+                  <div>
+                    <div class="mono">${esc(policy.id)} · revision ${policy.current_revision_no}</div>
+                    <h3>${esc(policy.name)}</h3>
+                    <div class="summary">${esc(policy.summary)}</div>
+                    <div class="badges">
+                      <span class="badge">${esc(kindNames[policy.kind])}</span>
+                      ${policy.fields.level ? `<span class="badge ${esc(policy.fields.level)}">${esc(policy.fields.level)}</span>` : ""}
+                      ${policy.tags.map(tag => `<span class="badge">${esc(tag)}</span>`).join("")}
+                    </div>
+                  </div>
+                  <div class="actions">
+                    <button class="btn btn-small" data-action="edit-policy" data-id="${esc(policy.id)}">Edit</button>
+                    <button class="btn btn-small btn-danger" data-action="delete-policy" data-id="${esc(policy.id)}">Archive</button>
+                  </div>
+                </div>
+              </article>`).join("") || `<div class="empty">No policies yet.</div>`}
+          </div>`;
+      }
+
+      function renderDecisions() {
+        view.innerHTML = `
+          <div class="panel-head">
+            <div><h2 class="panel-title">Decision gate</h2><p class="panel-subtitle">Preview a policy result, then record the exact action as evidence.</p></div>
+          </div>
+          <form class="evaluator" id="evaluate-form">
+            <select class="field" id="action-type">
+              ${["read","edit","delete","command","dependency","migration","auth","review","bootstrap"].map(v => `<option value="${v}">${v}</option>`).join("")}
+            </select>
+            <input class="field" id="action-summary" placeholder="Describe the intended action and why" required />
+            <textarea class="field wide" id="action-targets" placeholder="Repository-relative targets, one per line&#10;src/service.ts"></textarea>
+            <textarea class="field wide" id="action-commands" placeholder="Exact commands, one per line (never include secrets)"></textarea>
+            <textarea class="field wide" id="action-dependencies" placeholder="Dependencies changed, one per line"></textarea>
+            <div class="toolbar wide">
+              <button class="btn" type="submit">Preview decision</button>
+              <button class="btn btn-primary" type="button" data-action="record-decision">Record evidence</button>
+            </div>
+            <div class="wide" id="evaluation-result">${renderEvaluation()}</div>
+          </form>
+          <div class="grid">
+            ${state.decisions.map(decision => `
+              <article class="card">
+                <div class="card-top">
+                  <div>
+                    <div class="mono">${esc(decision.id)} · ${new Date(decision.created_at).toLocaleString()}</div>
+                    <h3>${esc(decision.request.summary)}</h3>
+                    <div class="summary">${esc(decision.evaluation.rationale)}</div>
+                    <div class="badges">
+                      <span class="badge ${esc(decision.decision_level)}">${esc(decision.decision_level)}</span>
+                      <span class="badge ${esc(decision.state)}">${esc(decision.state.replaceAll("_", " "))}</span>
+                      <span class="badge">${esc(decision.request.action_type)}</span>
+                    </div>
+                  </div>
+                  ${decision.state === "pending_approval" ? `
+                    <div class="actions">
+                      <button class="btn btn-small" data-action="review-decision" data-status="approved" data-id="${esc(decision.id)}">Approve</button>
+                      <button class="btn btn-small btn-danger" data-action="review-decision" data-status="rejected" data-id="${esc(decision.id)}">Reject</button>
+                    </div>` : ""}
+                </div>
+              </article>`).join("") || `<div class="empty">No decisions recorded yet.</div>`}
+          </div>`;
+      }
+
+      function renderEvaluation() {
+        const result = state.evaluation;
+        if (!result) return `<div class="result"><div class="summary">No action evaluated yet.</div></div>`;
+        return `<div class="result ${esc(result.level)}">
+          <div class="badges"><span class="badge ${esc(result.level)}">${esc(result.level)}</span></div>
+          <h3>${esc(result.rationale)}</h3><div class="summary">${esc(result.next_action)}</div>
+        </div>`;
+      }
+
+      function renderFeedback() {
+        view.innerHTML = `
+          <div class="panel-head">
+            <div><h2 class="panel-title">Feedback convergence</h2><p class="panel-subtitle">Three related observations promote a proposal. Only a human can ratify it.</p></div>
+          </div>
+          <div class="grid">
+            ${state.proposals.map(proposal => `
+              <article class="card">
+                <div class="card-top">
+                  <div>
+                    <div class="mono">${esc(proposal.id)} · ${proposal.convergence_count}/3 observations</div>
+                    <h3>${esc(proposal.title)}</h3>
+                    <div class="summary">${esc(proposal.suggested_edit)}</div>
+                    <div class="badges">
+                      <span class="badge ${esc(proposal.state)}">${esc(proposal.state.replaceAll("_", " "))}</span>
+                      <span class="badge">${esc(proposal.scope_id || proposal.scope_kind)}</span>
+                      ${proposal.proposed_by.map(person => `<span class="badge">${esc(person)}</span>`).join("")}
+                    </div>
+                  </div>
+                  ${["pending","promoted_candidate"].includes(proposal.state) ? `
+                    <div class="actions">
+                      <button class="btn btn-small" data-action="observe-proposal" data-id="${esc(proposal.id)}">Add observation</button>
+                      ${proposal.state === "promoted_candidate" ? `<button class="btn btn-small btn-primary" data-action="review-proposal" data-status="accepted" data-id="${esc(proposal.id)}">Accept</button>` : ""}
+                      <button class="btn btn-small btn-danger" data-action="review-proposal" data-status="rejected" data-id="${esc(proposal.id)}">Reject</button>
+                    </div>` : ""}
+                </div>
+              </article>`).join("") || `<div class="empty">No reusable preferences proposed yet. Agents submit them through MCP.</div>`}
+          </div>`;
+      }
+
+      function actionPayload() {
+        return {
+          context_id: "default",
+          action_type: document.getElementById("action-type").value,
+          summary: document.getElementById("action-summary").value,
+          targets: lines(document.getElementById("action-targets").value),
+          commands: lines(document.getElementById("action-commands").value),
+          dependencies: lines(document.getElementById("action-dependencies").value),
+          requested_by: "dashboard-demo",
+        };
+      }
+
+      function openPolicy(policy) {
+        document.getElementById("policy-dialog-title").textContent = policy ? "Edit policy" : "New policy";
+        document.getElementById("policy-editing").value = policy?.id || "";
+        document.getElementById("policy-id").value = policy?.id || "";
+        document.getElementById("policy-id").disabled = Boolean(policy);
+        document.getElementById("policy-kind").value = policy?.kind || "general_rule";
+        document.getElementById("policy-kind").disabled = Boolean(policy);
+        document.getElementById("policy-name").value = policy?.name || "";
+        document.getElementById("policy-summary").value = policy?.summary || "";
+        document.getElementById("policy-body").value = policy?.body || "";
+        document.getElementById("policy-tags").value = policy?.tags.join(", ") || "";
+        document.getElementById("policy-level").value = policy?.fields.level || "limited";
+        document.getElementById("policy-fields").value = JSON.stringify(policy?.fields || {}, null, 2);
+        document.getElementById("policy-rationale").value = "";
+        document.getElementById("rationale-label").style.display = policy ? "grid" : "none";
+        dialog.showModal();
+      }
+
+      document.addEventListener("click", async event => {
+        const button = event.target.closest("button");
+        if (!button) return;
+        if (button.dataset.tab) { state.tab = button.dataset.tab; render(); return; }
+        if (button.hasAttribute("data-close")) { dialog.close(); return; }
+        const action = button.dataset.action;
+        try {
+          if (action === "new-policy") openPolicy();
+          if (action === "edit-policy") openPolicy(state.guidelines.find(p => p.id === button.dataset.id));
+          if (action === "delete-policy" && confirm("Archive this policy? Its revision history will be retained.")) {
+            await api(`/api/guidelines/${encodeURIComponent(button.dataset.id)}`, { method: "DELETE" });
+            toast("Policy archived"); await refresh();
+          }
+          if (action === "record-decision") {
+            await api("/api/decisions", { method: "POST", body: JSON.stringify(actionPayload()) });
+            toast("Decision evidence recorded"); await refresh();
+          }
+          if (action === "review-decision") {
+            const reviewer = prompt("Reviewer name");
+            if (!reviewer) return;
+            await api(`/api/decisions/${encodeURIComponent(button.dataset.id)}/review`, {
+              method: "POST", body: JSON.stringify({ status: button.dataset.status, reviewed_by: reviewer }),
+            });
+            toast(`Decision ${button.dataset.status}`); await refresh();
+          }
+          if (action === "observe-proposal") {
+            const observation = prompt("Developer feedback observation");
+            if (!observation) return;
+            const proposedBy = prompt("Who gave this feedback?");
+            if (!proposedBy) return;
+            await api(`/api/proposals/${encodeURIComponent(button.dataset.id)}/observe`, {
+              method: "POST", body: JSON.stringify({ observation, proposed_by: proposedBy }),
+            });
+            toast("Observation attached"); await refresh();
+          }
+          if (action === "review-proposal") {
+            const reviewer = prompt("Reviewer name");
+            if (!reviewer) return;
+            await api(`/api/proposals/${encodeURIComponent(button.dataset.id)}/review`, {
+              method: "POST", body: JSON.stringify({ status: button.dataset.status, reviewed_by: reviewer }),
+            });
+            toast(`Proposal ${button.dataset.status}`); await refresh();
+          }
+        } catch (error) { alert(error.message); }
+      });
+
+      view.addEventListener("input", event => {
+        if (event.target.id !== "policy-search") return;
+        const query = event.target.value.toLowerCase();
+        document.querySelectorAll(".searchable").forEach(card => {
+          card.style.display = card.dataset.search.includes(query) ? "" : "none";
+        });
+      });
+
+      view.addEventListener("submit", async event => {
+        if (event.target.id !== "evaluate-form") return;
+        event.preventDefault();
+        try {
+          state.evaluation = await api("/api/evaluate", { method: "POST", body: JSON.stringify(actionPayload()) });
+          document.getElementById("evaluation-result").innerHTML = renderEvaluation();
+        } catch (error) { alert(error.message); }
+      });
+
+      document.getElementById("policy-form").addEventListener("submit", async event => {
+        event.preventDefault();
+        try {
+          const editing = document.getElementById("policy-editing").value;
+          const kind = document.getElementById("policy-kind").value;
+          const fields = JSON.parse(document.getElementById("policy-fields").value || "{}");
+          if (kind === "general_rule") fields.level = document.getElementById("policy-level").value;
+          const payload = {
+            id: document.getElementById("policy-id").value,
+            kind,
+            name: document.getElementById("policy-name").value,
+            summary: document.getElementById("policy-summary").value,
+            body: document.getElementById("policy-body").value,
+            tags: document.getElementById("policy-tags").value.split(",").map(v => v.trim()).filter(Boolean),
+            fields,
+            rationale: document.getElementById("policy-rationale").value,
+            author: "dashboard",
+          };
+          await api(editing ? `/api/guidelines/${encodeURIComponent(editing)}` : "/api/guidelines", {
+            method: editing ? "PUT" : "POST", body: JSON.stringify(payload),
+          });
+          dialog.close(); toast(editing ? "New revision created" : "Policy created"); await refresh();
+        } catch (error) { alert(error.message); }
+      });
+
+      refresh().catch(error => {
+        document.querySelector("#server-status span:last-child").textContent = "control plane unavailable";
+        view.innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+      });
+    </script>
+  </body>
+</html>

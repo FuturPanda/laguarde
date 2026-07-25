@@ -1,0 +1,13 @@
+node_modules
+dist
+*.db
+*.db-shm
+*.db-wal
+decisions
+.git
+.DS_Store
+examples
+docs
+test
+brief.md
+plan.md

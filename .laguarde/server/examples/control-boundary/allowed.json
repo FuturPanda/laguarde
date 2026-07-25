@@ -1,0 +1,7 @@
+{
+  "context_id": "default",
+  "summary": "Document the required API_BASE_URL placeholder",
+  "action_type": "edit",
+  "targets": [".env.example"],
+  "requested_by": "demo-agent"
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "observation": "Use unknown at HTTP boundaries and narrow it explicitly.",
+    "proposed_by": "Alice"
+  },
+  {
+    "observation": "The SDK response should have been narrowed from unknown.",
+    "proposed_by": "Bob"
+  },
+  {
+    "observation": "Please stop casting third-party payloads to any.",
+    "proposed_by": "Alice"
+  }
+]

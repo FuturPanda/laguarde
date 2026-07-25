@@ -1,0 +1,10 @@
+{
+  "context_id": "default",
+  "summary": "Validate a user identifier and add its unit test",
+  "action_type": "edit",
+  "targets": [
+    "src/users/service.ts",
+    "test/users/service.test.ts"
+  ],
+  "requested_by": "demo-agent"
+}

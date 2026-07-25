@@ -1,0 +1,71 @@
+{
+  "updatedAt": 1784931001491,
+  "categories": {},
+  "agents": {},
+  "tools": {
+    "pantheon_fetch": {
+      "success": 1,
+      "failed": 0,
+      "totalDurationMs": 253
+    }
+  },
+  "adapters": {},
+  "failureKinds": {},
+  "background": {
+    "queued": 0,
+    "completed": 0,
+    "failed": 6,
+    "cancelled": 0
+  },
+  "recent": [
+    {
+      "kind": "background",
+      "label": "fixer:pantheon_90qt4k8d",
+      "status": "failed",
+      "ts": 1784930218835,
+      "failureKind": "background"
+    },
+    {
+      "kind": "background",
+      "label": "fixer:pantheon_cgd0r297",
+      "status": "failed",
+      "ts": 1784930218836,
+      "failureKind": "background"
+    },
+    {
+      "kind": "tool",
+      "label": "pantheon_fetch",
+      "status": "success",
+      "durationMs": 253,
+      "ts": 1784930448312
+    },
+    {
+      "kind": "background",
+      "label": "fixer:pantheon_90qt4k8d",
+      "status": "failed",
+      "ts": 1784930978462,
+      "failureKind": "background"
+    },
+    {
+      "kind": "background",
+      "label": "fixer:pantheon_cgd0r297",
+      "status": "failed",
+      "ts": 1784930978462,
+      "failureKind": "background"
+    },
+    {
+      "kind": "background",
+      "label": "fixer:pantheon_90qt4k8d",
+      "status": "failed",
+      "ts": 1784931001491,
+      "failureKind": "background"
+    },
+    {
+      "kind": "background",
+      "label": "fixer:pantheon_cgd0r297",
+      "status": "failed",
+      "ts": 1784931001491,
+      "failureKind": "background"
+    }
+  ]
+}

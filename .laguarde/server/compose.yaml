@@ -1,0 +1,11 @@
+services:
+  laguarde:
+    build: .
+    ports:
+      - "${LAGUARDE_PORT:-3000}:3000"
+    volumes:
+      - laguarde-data:/data
+    restart: unless-stopped
+
+volumes:
+  laguarde-data:

@@ -1,0 +1,7 @@
+{
+  "context_id": "default",
+  "summary": "Put the production API token in the application environment",
+  "action_type": "edit",
+  "targets": [".env"],
+  "requested_by": "demo-agent"
+}
