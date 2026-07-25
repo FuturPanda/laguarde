@@ -171,7 +171,7 @@ Puisque tout est revu dans le repo (pas de présentation 5 min), on **montre ré
 ### À produire
 
 - [x] Schéma simple (Mermaid) : présent dans `README.md`
-- [x] Noms internes retenus dans l’UI : `Policies`, `Decision gate`, `Feedback queue`
+- [x] Noms internes retenus dans l’UI : `Policies` (with policy test bench), `Feedback queue`
 - [x] Entrées/sorties de chaque outil MCP : documentées dans `docs/usage.md` et exposées par `tools/list`
 - [x] La **décision humaine** se matérialise dans l’UI pour les décisions et les propositions.
 

@@ -69,9 +69,9 @@ describe("agent installation contract", () => {
   test("builds a project-scoped npm installation contract", () => {
     const contract = buildNpmAgentInstallContract();
 
-    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.1.0");
+    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.2.0");
     expect(contract).toContain("COMMAND: npx");
-    expect(contract).toContain('"args": ["-y", "laguarde-mcp@0.1.0"]');
+    expect(contract).toContain('"args": ["-y", "laguarde-mcp@0.2.0"]');
     expect(contract).toContain("Require Node.js 24 or newer");
     expect(contract).toContain("Prefer project/workspace MCP configuration");
     expect(contract).toContain("It does not authorize elevated privileges");
@@ -228,6 +228,45 @@ describe("feedback convergence", () => {
     expect(accepted?.state).toBe("accepted");
     expect(revised.current_revision_no).toBe(initial.current_revision_no + 1);
     expect(revised.body).toContain("external boundaries");
+    store.close();
+  });
+
+  test("merges a new-policy proposal into the policy registry", () => {
+    const { store, service } = setup();
+    const proposal = service.proposePreference({
+      scope_kind: "general_rule",
+      title: "Ask before changing CI providers",
+      observation: "Keep the current CI provider unless the team agrees.",
+      suggested_edit:
+        "Changing CI providers requires explicit human approval.",
+      proposed_by: "Alice",
+    });
+
+    service.proposePreference({
+      existing_proposal_id: proposal.id,
+      observation: "Do not replace CI during unrelated maintenance.",
+      proposed_by: "Bob",
+    });
+    service.proposePreference({
+      existing_proposal_id: proposal.id,
+      observation: "CI migrations need a separate decision.",
+      proposed_by: "Carol",
+    });
+
+    const merged = store.reviewProposal(
+      proposal.id,
+      "accepted",
+      "dashboard",
+    );
+    const created = store.getGuideline(merged!.scope_id!);
+
+    expect(merged?.state).toBe("accepted");
+    expect(created?.name).toBe("Ask before changing CI providers");
+    expect(created?.body).toContain("explicit human approval");
+    expect(created?.tags).toContain("feedback");
+    expect(created?.fields.level).toBe("limited");
+    expect(created?.status).toBe("draft");
+    expect(created?.current_revision_no).toBe(1);
     store.close();
   });
 });

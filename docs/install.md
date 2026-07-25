@@ -14,7 +14,7 @@ Configure the current MCP client to launch:
   "mcpServers": {
     "laguarde": {
       "command": "npx",
-      "args": ["-y", "laguarde-mcp@0.1.0"]
+      "args": ["-y", "laguarde-mcp@0.2.0"]
     }
   }
 }

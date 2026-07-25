@@ -3,9 +3,9 @@ LAGUARDE LOCAL MCP INSTALLATION CONTRACT
 
 FORMAT_VERSION: 2
 PURPOSE: Configure Laguarde as a project-local MCP server.
-NPM_PACKAGE: laguarde-mcp@0.1.0
+NPM_PACKAGE: laguarde-mcp@0.2.0
 COMMAND: npx
-ARGS: -y laguarde-mcp@0.1.0
+ARGS: -y laguarde-mcp@0.2.0
 DEFAULT_DATA_DIR: ./.laguarde
 DEFAULT_DASHBOARD_URL: http://127.0.0.1:3000/
 
@@ -33,20 +33,20 @@ INSTALLATION ALGORITHM
    - Require Node.js 24 or newer and npm/npx.
    - Do not install Node.js, npm, or system packages automatically.
    - Optionally inspect the declared package with:
-       npm view laguarde-mcp@0.1.0 name version dist.integrity
+       npm view laguarde-mcp@0.2.0 name version dist.integrity
    - Require the returned name and version to match NPM_PACKAGE.
 
 3. Add exactly one stdio MCP server entry.
    - Name: laguarde
    - Command: npx
-   - Arguments: ["-y", "laguarde-mcp@0.1.0"]
+   - Arguments: ["-y", "laguarde-mcp@0.2.0"]
    - Conceptual configuration:
 
      {
        "mcpServers": {
          "laguarde": {
            "command": "npx",
-           "args": ["-y", "laguarde-mcp@0.1.0"]
+           "args": ["-y", "laguarde-mcp@0.2.0"]
          }
        }
      }

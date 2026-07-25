@@ -92,6 +92,25 @@ function stringify(value: unknown): string {
   return JSON.stringify(value);
 }
 
+const proposalKindPrefixes: Record<GuidelineKind, string> = {
+  code_rule: "code",
+  general_rule: "guard",
+  project_init: "init",
+  pr_review_guideline: "review",
+};
+
+function proposalSlug(value: string): string {
+  const slug = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64)
+    .replace(/-+$/g, "");
+  return slug.length >= 2 ? slug : "feedback-policy";
+}
+
 function mapGuideline(row: GuidelineRow): Guideline {
   return {
     id: row.id,
@@ -485,8 +504,16 @@ export class PolicyStore {
     suggested_edit: string;
     proposed_by: string;
   }): ProposalWithObservations {
-    if (input.scope_id && !this.getGuideline(input.scope_id)) {
-      throw new Error(`Guideline '${input.scope_id}' not found`);
+    if (input.scope_id) {
+      const guideline = this.getGuideline(input.scope_id);
+      if (!guideline) {
+        throw new Error(`Guideline '${input.scope_id}' not found`);
+      }
+      if (guideline.kind !== input.scope_kind) {
+        throw new Error(
+          `Guideline '${input.scope_id}' is ${guideline.kind}, not ${input.scope_kind}`,
+        );
+      }
     }
     const id = `prop-${randomUUID()}`;
     const createdAt = now();
@@ -627,18 +654,40 @@ export class PolicyStore {
     const update = this.db.transaction(() => {
       if (status === "accepted") {
         if (!proposal.scope_id) {
-          throw new Error(
-            "Creating a new guideline from a proposal is not supported in the MVP",
+          const guidelineId = this.nextProposalGuidelineId(
+            proposal.scope_kind,
+            proposal.title,
+          );
+          const latestObservation = proposal.observations.at(-1)?.observation;
+          this.createGuideline({
+            id: guidelineId,
+            kind: proposal.scope_kind,
+            name: proposal.title,
+            summary: latestObservation ?? proposal.title,
+            body: acceptedEdit,
+            tags: ["feedback"],
+            status:
+              proposal.scope_kind === "general_rule" ? "draft" : "active",
+            fields:
+              proposal.scope_kind === "general_rule"
+                ? { level: "limited" }
+                : {},
+            rationale: `Merged proposal ${proposal.id}: ${proposal.title}`,
+            author: reviewedBy,
+          });
+          this.db
+            .query("UPDATE proposals SET scope_id = ? WHERE id = ?")
+            .run(guidelineId, proposal.id);
+        } else {
+          this.updateGuideline(
+            proposal.scope_id,
+            { body: acceptedEdit },
+            {
+              rationale: `Merged proposal ${proposal.id}: ${proposal.title}`,
+              author: reviewedBy,
+            },
           );
         }
-        this.updateGuideline(
-          proposal.scope_id,
-          { body: acceptedEdit },
-          {
-            rationale: `Accepted proposal ${proposal.id}: ${proposal.title}`,
-            author: reviewedBy,
-          },
-        );
       }
       this.db
         .query(
@@ -650,6 +699,27 @@ export class PolicyStore {
     });
     update();
     return this.getProposal(id);
+  }
+
+  private nextProposalGuidelineId(
+    kind: GuidelineKind,
+    title: string,
+  ): string {
+    const base = `${proposalKindPrefixes[kind]}-${proposalSlug(title)}`;
+    let candidate = base;
+    let suffix = 2;
+    while (
+      this.db
+        .query<{ present: number }, [string]>(
+          "SELECT 1 AS present FROM guidelines WHERE id = ?",
+        )
+        .get(candidate)
+    ) {
+      const suffixText = `-${suffix}`;
+      candidate = `${base.slice(0, 80 - suffixText.length)}${suffixText}`;
+      suffix += 1;
+    }
+    return candidate;
   }
 
   private writeDecisionEvidence(decision: Decision): void {

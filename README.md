@@ -31,7 +31,7 @@ API.
 For a local MCP installation, use Node.js 24 or newer:
 
 ```bash
-npx -y laguarde-mcp@0.1.0
+npx -y laguarde-mcp@0.2.0
 ```
 
 Normally your MCP client launches that command as a stdio server. Laguarde
@@ -45,7 +45,7 @@ Conceptual MCP configuration:
   "mcpServers": {
     "laguarde": {
       "command": "npx",
-      "args": ["-y", "laguarde-mcp@0.1.0"]
+      "args": ["-y", "laguarde-mcp@0.2.0"]
     }
   }
 }

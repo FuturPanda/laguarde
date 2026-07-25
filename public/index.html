@@ -240,14 +240,13 @@
         </div>
         <div class="hero-side">
           <div class="metric"><span>Active policies</span><strong id="metric-policies">—</strong></div>
-          <div class="metric"><span>Pending approvals</span><strong id="metric-approvals">—</strong></div>
+          <div class="metric"><span>Policy revisions</span><strong id="metric-revisions">—</strong></div>
           <div class="metric"><span>Feedback candidates</span><strong id="metric-proposals">—</strong></div>
         </div>
       </section>
 
       <nav class="tabs" aria-label="Dashboard sections">
         <button class="tab active" data-tab="policies">Policies <span class="tab-count" id="count-policies">0</span></button>
-        <button class="tab" data-tab="decisions">Decision gate <span class="tab-count" id="count-decisions">0</span></button>
         <button class="tab" data-tab="feedback">Feedback queue <span class="tab-count" id="count-feedback">0</span></button>
       </nav>
 
@@ -300,7 +299,7 @@
     <div class="toast" id="toast" role="status"></div>
 
     <script>
-      const state = { tab: "policies", guidelines: [], decisions: [], proposals: [], evaluation: null };
+      const state = { tab: "policies", guidelines: [], proposals: [], evaluation: null };
       const view = document.getElementById("view");
       const dialog = document.getElementById("policy-dialog");
 
@@ -324,19 +323,17 @@
       const lines = (value) => value.split("\n").map(v => v.trim()).filter(Boolean);
 
       async function refresh() {
-        const [health, policies, decisions, proposals] = await Promise.all([
-          api("/health"), api("/api/guidelines"), api("/api/decisions"), api("/api/proposals"),
+        const [health, policies, proposals] = await Promise.all([
+          api("/health"), api("/api/guidelines"), api("/api/proposals"),
         ]);
         state.guidelines = policies.guidelines;
-        state.decisions = decisions.decisions;
         state.proposals = proposals.proposals;
         document.getElementById("server-status").classList.add("online");
         document.querySelector("#server-status span:last-child").textContent = `online · ${health.version}`;
         document.getElementById("metric-policies").textContent = state.guidelines.filter(p => p.status === "active").length;
-        document.getElementById("metric-approvals").textContent = state.decisions.filter(d => d.state === "pending_approval").length;
+        document.getElementById("metric-revisions").textContent = state.guidelines.reduce((total, policy) => total + policy.current_revision_no, 0);
         document.getElementById("metric-proposals").textContent = state.proposals.filter(p => p.state === "promoted_candidate").length;
         document.getElementById("count-policies").textContent = state.guidelines.length;
-        document.getElementById("count-decisions").textContent = state.decisions.length;
         document.getElementById("count-feedback").textContent = state.proposals.length;
         render();
       }
@@ -344,7 +341,6 @@
       function render() {
         document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === state.tab));
         if (state.tab === "policies") renderPolicies();
-        if (state.tab === "decisions") renderDecisions();
         if (state.tab === "feedback") renderFeedback();
       }
 
@@ -371,6 +367,7 @@
                     <div class="summary">${esc(policy.summary)}</div>
                     <div class="badges">
                       <span class="badge">${esc(kindNames[policy.kind])}</span>
+                      <span class="badge ${esc(policy.status)}">${esc(policy.status)}</span>
                       ${policy.fields.level ? `<span class="badge ${esc(policy.fields.level)}">${esc(policy.fields.level)}</span>` : ""}
                       ${policy.tags.map(tag => `<span class="badge">${esc(tag)}</span>`).join("")}
                     </div>
@@ -381,13 +378,9 @@
                   </div>
                 </div>
               </article>`).join("") || `<div class="empty">No policies yet.</div>`}
-          </div>`;
-      }
-
-      function renderDecisions() {
-        view.innerHTML = `
+          </div>
           <div class="panel-head">
-            <div><h2 class="panel-title">Decision gate</h2><p class="panel-subtitle">Preview a policy result, then record the exact action as evidence.</p></div>
+            <div><h2 class="panel-title">Policy test bench</h2><p class="panel-subtitle">Human-only workspace: test policy coverage, then add a missing policy or revise a matched one.</p></div>
           </div>
           <form class="evaluator" id="evaluate-form">
             <select class="field" id="action-type">
@@ -398,48 +391,36 @@
             <textarea class="field wide" id="action-commands" placeholder="Exact commands, one per line (never include secrets)"></textarea>
             <textarea class="field wide" id="action-dependencies" placeholder="Dependencies changed, one per line"></textarea>
             <div class="toolbar wide">
-              <button class="btn" type="submit">Preview decision</button>
-              <button class="btn btn-primary" type="button" data-action="record-decision">Record evidence</button>
+              <button class="btn btn-primary" type="submit">Inspect policy coverage</button>
             </div>
             <div class="wide" id="evaluation-result">${renderEvaluation()}</div>
-          </form>
-          <div class="grid">
-            ${state.decisions.map(decision => `
-              <article class="card">
-                <div class="card-top">
-                  <div>
-                    <div class="mono">${esc(decision.id)} · ${new Date(decision.created_at).toLocaleString()}</div>
-                    <h3>${esc(decision.request.summary)}</h3>
-                    <div class="summary">${esc(decision.evaluation.rationale)}</div>
-                    <div class="badges">
-                      <span class="badge ${esc(decision.decision_level)}">${esc(decision.decision_level)}</span>
-                      <span class="badge ${esc(decision.state)}">${esc(decision.state.replaceAll("_", " "))}</span>
-                      <span class="badge">${esc(decision.request.action_type)}</span>
-                    </div>
-                  </div>
-                  ${decision.state === "pending_approval" ? `
-                    <div class="actions">
-                      <button class="btn btn-small" data-action="review-decision" data-status="approved" data-id="${esc(decision.id)}">Approve</button>
-                      <button class="btn btn-small btn-danger" data-action="review-decision" data-status="rejected" data-id="${esc(decision.id)}">Reject</button>
-                    </div>` : ""}
-                </div>
-              </article>`).join("") || `<div class="empty">No decisions recorded yet.</div>`}
-          </div>`;
+          </form>`;
       }
 
       function renderEvaluation() {
         const result = state.evaluation;
-        if (!result) return `<div class="result"><div class="summary">No action evaluated yet.</div></div>`;
+        if (!result) return `<div class="result"><div class="summary">Describe a scenario to inspect which policies cover it. This does not create an agent decision or audit record.</div></div>`;
+        const matched = result.matched_rules || [];
         return `<div class="result ${esc(result.level)}">
           <div class="badges"><span class="badge ${esc(result.level)}">${esc(result.level)}</span></div>
-          <h3>${esc(result.rationale)}</h3><div class="summary">${esc(result.next_action)}</div>
+          <h3>${esc(result.rationale)}</h3>
+          <div class="summary">${esc(result.next_action)}</div>
+          <div class="grid">
+            ${matched.map(rule => `<article class="card">
+              <div class="mono">${esc(rule.guideline_id)} · ${esc(rule.revision_id)}</div>
+              <h3>${esc(rule.name)}</h3>
+              <div class="summary">${esc(rule.reason)}</div>
+              <div class="actions"><button class="btn btn-small" data-action="edit-policy" data-id="${esc(rule.guideline_id)}">Revise this policy</button></div>
+            </article>`).join("") || `<div class="empty">No policy matched this scenario.</div>`}
+          </div>
+          ${matched.length === 0 ? `<div class="toolbar"><button class="btn btn-primary" type="button" data-action="new-policy-from-evaluation">Add policy for this gap</button></div>` : ""}
         </div>`;
       }
 
       function renderFeedback() {
         view.innerHTML = `
           <div class="panel-head">
-            <div><h2 class="panel-title">Feedback convergence</h2><p class="panel-subtitle">Three related observations promote a proposal. Only a human can ratify it.</p></div>
+            <div><h2 class="panel-title">Feedback convergence</h2><p class="panel-subtitle">Agent feedback converges here. One human click creates a policy or merges a new revision.</p></div>
           </div>
           <div class="grid">
             ${state.proposals.map(proposal => `
@@ -449,6 +430,7 @@
                     <div class="mono">${esc(proposal.id)} · ${proposal.convergence_count}/3 observations</div>
                     <h3>${esc(proposal.title)}</h3>
                     <div class="summary">${esc(proposal.suggested_edit)}</div>
+                    <div class="summary">${proposal.scope_id ? `Will create a new revision of ${esc(proposal.scope_id)}.` : `Will create a new ${esc(proposal.scope_kind.replaceAll("_", " "))} policy.`}</div>
                     <div class="badges">
                       <span class="badge ${esc(proposal.state)}">${esc(proposal.state.replaceAll("_", " "))}</span>
                       <span class="badge">${esc(proposal.scope_id || proposal.scope_kind)}</span>
@@ -458,7 +440,7 @@
                   ${["pending","promoted_candidate"].includes(proposal.state) ? `
                     <div class="actions">
                       <button class="btn btn-small" data-action="observe-proposal" data-id="${esc(proposal.id)}">Add observation</button>
-                      ${proposal.state === "promoted_candidate" ? `<button class="btn btn-small btn-primary" data-action="review-proposal" data-status="accepted" data-id="${esc(proposal.id)}">Accept</button>` : ""}
+                      ${proposal.state === "promoted_candidate" ? `<button class="btn btn-small btn-primary" data-action="merge-proposal" data-id="${esc(proposal.id)}">Merge</button>` : ""}
                       <button class="btn btn-small btn-danger" data-action="review-proposal" data-status="rejected" data-id="${esc(proposal.id)}">Reject</button>
                     </div>` : ""}
                 </div>
@@ -474,23 +456,46 @@
           targets: lines(document.getElementById("action-targets").value),
           commands: lines(document.getElementById("action-commands").value),
           dependencies: lines(document.getElementById("action-dependencies").value),
-          requested_by: "dashboard-demo",
+          requested_by: "dashboard-human",
         };
       }
 
-      function openPolicy(policy) {
+      function safePolicyId(value) {
+        const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 62);
+        return `guard-${slug || "policy-gap"}`;
+      }
+
+      function policySeedFromEvaluation() {
+        const payload = actionPayload();
+        const match = { action_types: [payload.action_type] };
+        if (payload.targets.length) match.target_patterns = payload.targets;
+        if (payload.commands.length) match.command_patterns = payload.commands;
+        if (payload.dependencies.length) match.dependency_patterns = payload.dependencies;
+        return {
+          id: safePolicyId(payload.summary),
+          kind: "general_rule",
+          name: payload.summary,
+          summary: `Human-authored coverage for ${payload.action_type} actions.`,
+          body: `Define the expected behavior for: ${payload.summary}`,
+          tags: ["human-insight"],
+          fields: { level: state.evaluation?.level || "limited", match },
+        };
+      }
+
+      function openPolicy(policy, seed = null) {
+        const value = policy || seed;
         document.getElementById("policy-dialog-title").textContent = policy ? "Edit policy" : "New policy";
         document.getElementById("policy-editing").value = policy?.id || "";
-        document.getElementById("policy-id").value = policy?.id || "";
+        document.getElementById("policy-id").value = value?.id || "";
         document.getElementById("policy-id").disabled = Boolean(policy);
-        document.getElementById("policy-kind").value = policy?.kind || "general_rule";
+        document.getElementById("policy-kind").value = value?.kind || "general_rule";
         document.getElementById("policy-kind").disabled = Boolean(policy);
-        document.getElementById("policy-name").value = policy?.name || "";
-        document.getElementById("policy-summary").value = policy?.summary || "";
-        document.getElementById("policy-body").value = policy?.body || "";
-        document.getElementById("policy-tags").value = policy?.tags.join(", ") || "";
-        document.getElementById("policy-level").value = policy?.fields.level || "limited";
-        document.getElementById("policy-fields").value = JSON.stringify(policy?.fields || {}, null, 2);
+        document.getElementById("policy-name").value = value?.name || "";
+        document.getElementById("policy-summary").value = value?.summary || "";
+        document.getElementById("policy-body").value = value?.body || "";
+        document.getElementById("policy-tags").value = value?.tags?.join(", ") || "";
+        document.getElementById("policy-level").value = value?.fields?.level || "limited";
+        document.getElementById("policy-fields").value = JSON.stringify(value?.fields || {}, null, 2);
         document.getElementById("policy-rationale").value = "";
         document.getElementById("rationale-label").style.display = policy ? "grid" : "none";
         dialog.showModal();
@@ -504,22 +509,11 @@
         const action = button.dataset.action;
         try {
           if (action === "new-policy") openPolicy();
+          if (action === "new-policy-from-evaluation") openPolicy(null, policySeedFromEvaluation());
           if (action === "edit-policy") openPolicy(state.guidelines.find(p => p.id === button.dataset.id));
           if (action === "delete-policy" && confirm("Archive this policy? Its revision history will be retained.")) {
             await api(`/api/guidelines/${encodeURIComponent(button.dataset.id)}`, { method: "DELETE" });
             toast("Policy archived"); await refresh();
-          }
-          if (action === "record-decision") {
-            await api("/api/decisions", { method: "POST", body: JSON.stringify(actionPayload()) });
-            toast("Decision evidence recorded"); await refresh();
-          }
-          if (action === "review-decision") {
-            const reviewer = prompt("Reviewer name");
-            if (!reviewer) return;
-            await api(`/api/decisions/${encodeURIComponent(button.dataset.id)}/review`, {
-              method: "POST", body: JSON.stringify({ status: button.dataset.status, reviewed_by: reviewer }),
-            });
-            toast(`Decision ${button.dataset.status}`); await refresh();
           }
           if (action === "observe-proposal") {
             const observation = prompt("Developer feedback observation");
@@ -538,6 +532,14 @@
               method: "POST", body: JSON.stringify({ status: button.dataset.status, reviewed_by: reviewer }),
             });
             toast(`Proposal ${button.dataset.status}`); await refresh();
+          }
+          if (action === "merge-proposal") {
+            const proposal = state.proposals.find(item => item.id === button.dataset.id);
+            await api(`/api/proposals/${encodeURIComponent(button.dataset.id)}/review`, {
+              method: "POST", body: JSON.stringify({ status: "accepted", reviewed_by: "dashboard" }),
+            });
+            toast(proposal?.scope_id ? "Feedback merged as a new revision" : "Feedback merged as a new policy");
+            await refresh();
           }
         } catch (error) { alert(error.message); }
       });

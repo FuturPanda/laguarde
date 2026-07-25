@@ -53,7 +53,7 @@ function errorContent(error: unknown) {
 
 export function createMcpServer(service: LaguardeService): McpServer {
   const server = new McpServer(
-    { name: "laguarde", version: "0.1.0" },
+    { name: "laguarde", version: "0.2.0" },
     {
       instructions:
         "Laguarde is the team's policy control plane. At session start, call get_policy_bundle. Before a material action, call evaluate_action. To create an immutable audit record, call record_decision with the same exact action. Never execute forbidden actions or approval-required actions without a human approval recorded in the Laguarde dashboard. When a developer expresses a reusable preference, call list_preference_proposals, then propose_preference. Agents can propose policy changes but cannot ratify them.",

@@ -53,8 +53,9 @@ approval-required action.
 
 ## 4. Human review
 
-Open the **Decision gate** tab. Pending approval records can be approved or
-rejected. The review updates the existing evidence record.
+Approval-required decisions remain available through the decisions API for a
+human reviewer. The dashboard now focuses on policy authoring instead of
+mixing agent decision input with human policy changes.
 
 In the prototype, approval is informational: an execution adapter must check
 the decision state before the real command or file operation to make it a hard
@@ -87,12 +88,15 @@ Otherwise create a proposal:
 ```
 
 After three observations the proposal becomes `promoted_candidate`. A human
-can refine and accept it in the **Feedback queue**. Acceptance creates a new
-immutable guideline revision.
+can merge it with one click in the **Feedback queue**. A targeted proposal
+creates a new immutable revision; an untargeted proposal creates a new policy.
+New general guardrails start as drafts because matching and enforcement fields
+must be reviewed before they affect every agent action.
 
 ## Dashboard policy editing
 
-The **Policies** tab supports adding, editing, searching, and archiving. Editing
-requires a rationale and creates a revision; archival is a soft delete, so
-historical decision references remain meaningful.
-
+The **Policies** tab supports adding, editing, searching, and archiving. Its
+human-only test bench previews policy coverage and links directly to the
+matched policies, or prefills a new policy when no rule matches. It never
+records an agent decision. Editing requires a rationale and creates a revision;
+archival is a soft delete, so historical decision references remain meaningful.

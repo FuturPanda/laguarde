@@ -3,13 +3,13 @@
   "name": "dev.futur-panda/laguarde",
   "title": "Laguarde",
   "description": "Self-hostable policy control plane for AI coding agents.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "websiteUrl": "https://www.futur-panda.dev/laguarde/docs",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "laguarde-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       }
