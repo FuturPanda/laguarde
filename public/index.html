@@ -176,6 +176,8 @@
       }
       .approval-queue .panel-head { margin-bottom: 13px; }
       .approval-card { border-color: rgba(240,165,101,.26); }
+      .decision-card.approved { border-color: rgba(114,229,154,.22); }
+      .decision-card.rejected { border-color: rgba(240,120,120,.22); }
       .decision-details { display: grid; gap: 8px; margin-top: 12px; }
       .decision-line { color: var(--muted); font-size: 12px; line-height: 1.5; }
       .decision-line strong { color: var(--ink); font-weight: 650; }
@@ -265,6 +267,7 @@
 
       <nav class="tabs" aria-label="Dashboard sections">
         <button class="tab active" data-tab="policies">Policies <span class="tab-count" id="count-policies">0</span></button>
+        <button class="tab" data-tab="decisions">Decision history <span class="tab-count" id="count-decisions">0</span></button>
         <button class="tab" data-tab="feedback">Feedback queue <span class="tab-count" id="count-feedback">0</span></button>
       </nav>
 
@@ -376,6 +379,7 @@
         document.getElementById("metric-revisions").textContent = state.guidelines.reduce((total, policy) => total + policy.current_revision_no, 0);
         document.getElementById("metric-proposals").textContent = state.proposals.filter(p => ["pending", "promoted_candidate"].includes(p.state)).length;
         document.getElementById("count-policies").textContent = state.guidelines.length;
+        document.getElementById("count-decisions").textContent = state.decisions.filter(decision => decision.state !== "pending_approval").length;
         document.getElementById("count-feedback").textContent = state.proposals.length;
         renderProjectBar();
         render();
@@ -394,12 +398,19 @@
         }
         const identity = project.repository_url || project.root_path || "Global policies and unassigned activity";
         const seen = new Date(project.last_seen_at).toLocaleString();
-        meta.innerHTML = `<strong>${esc(identity)}</strong><br>${project.project_policy_count} project policies · ${project.open_proposal_count} open proposals · ${project.decision_count} decisions · seen ${esc(seen)}<br>MCP ${esc(`${location.origin}/mcp/projects/${project.id}`)}`;
+        const activePolicies = state.guidelines.filter(policy => policy.status === "active");
+        const globalPolicies = activePolicies.filter(policy => !policy.project_id).length;
+        const projectPolicies = activePolicies.filter(policy => policy.project_id === project.id).length;
+        const policySummary = project.id === "default"
+          ? `${globalPolicies} active global policies`
+          : `${activePolicies.length} effective policies (${projectPolicies} project-specific + ${globalPolicies} inherited global)`;
+        meta.innerHTML = `<strong>${esc(identity)}</strong><br>${esc(policySummary)} · ${project.open_proposal_count} open proposals · ${project.decision_count} decisions · seen ${esc(seen)}<br>MCP ${esc(`${location.origin}/mcp/projects/${project.id}`)}`;
       }
 
       function render() {
         document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.tab === state.tab));
         if (state.tab === "policies") renderPolicies();
+        if (state.tab === "decisions") renderDecisions();
         if (state.tab === "feedback") renderFeedback();
       }
 
@@ -474,6 +485,42 @@
                   </div>
                 </div>
               </article>`).join("") || `<div class="empty">No policies yet.</div>`}
+          </div>`;
+      }
+
+      function renderDecisions() {
+        const decisionHistory = state.decisions.filter(decision => decision.state !== "pending_approval");
+        view.innerHTML = `
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Decision history</h2>
+              <p class="panel-subtitle">Completed agent decisions remain visible as an audit trail.</p>
+            </div>
+          </div>
+          <div class="grid">
+            ${decisionHistory.map(decision => `
+              <article class="card decision-card ${esc(decision.state)}">
+                <div class="card-top">
+                  <div>
+                    <div class="mono">${esc(decision.id)} · ${esc(new Date(decision.created_at).toLocaleString())}</div>
+                    <h3>${esc(decision.request.summary)}</h3>
+                    <div class="summary">${esc(decision.evaluation.rationale)}</div>
+                    <div class="badges">
+                      <span class="badge ${esc(decision.state)}">${esc(decision.state.replaceAll("_", " "))}</span>
+                      <span class="badge">${esc(decision.request.action_type)}</span>
+                      ${decision.reviewed_by ? `<span class="badge">reviewed by ${esc(decision.reviewed_by)}</span>` : ""}
+                      ${decision.reviewed_at ? `<span class="badge">${esc(new Date(decision.reviewed_at).toLocaleString())}</span>` : ""}
+                      ${decision.evaluation.matched_rules.map(rule => `<span class="badge">${esc(rule.name)} · ${esc(rule.revision_id)}</span>`).join("")}
+                    </div>
+                    <div class="decision-details">
+                      ${decision.request.targets?.length ? `<div class="decision-line"><strong>Targets</strong><code class="decision-code">${decision.request.targets.map(esc).join("\n")}</code></div>` : ""}
+                      ${decision.request.commands?.length ? `<div class="decision-line"><strong>Exact commands</strong><code class="decision-code">${decision.request.commands.map(esc).join("\n")}</code></div>` : ""}
+                      ${decision.request.dependencies?.length ? `<div class="decision-line"><strong>Dependencies</strong><code class="decision-code">${decision.request.dependencies.map(esc).join("\n")}</code></div>` : ""}
+                      ${decision.review_note ? `<div class="decision-line"><strong>Review note</strong><div class="summary">${esc(decision.review_note)}</div></div>` : ""}
+                    </div>
+                  </div>
+                </div>
+              </article>`).join("") || `<div class="empty">No completed decisions for this project yet.</div>`}
           </div>`;
       }
 

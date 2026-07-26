@@ -14,7 +14,7 @@ configuration publishes:
 
 - human documentation: `https://www.futur-panda.dev/laguarde/docs`;
 - agent contract: `https://www.futur-panda.dev/laguarde/install`;
-- npm package: `laguarde-mcp@0.3.1`.
+- npm package: `laguarde-mcp@0.3.2`.
 
 This creates:
 

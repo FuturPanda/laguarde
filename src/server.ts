@@ -46,7 +46,7 @@ export function createApp(
     res.json({
       status: "ok",
       service: "laguarde",
-      version: "0.3.1",
+      version: "0.3.2",
       instance_id: process.env.LAGUARDE_INSTANCE_ID ?? null,
       guidelines: store.guidelineCount(),
       projects: store.listContexts().length,

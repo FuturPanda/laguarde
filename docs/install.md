@@ -10,8 +10,8 @@ Prerequisites:
 Ensure the one local daemon is running, then register the current repository:
 
 ```bash
-npx -y --package laguarde-mcp@0.3.1 laguarde-daemon ensure
-npx -y --package laguarde-mcp@0.3.1 laguarde-daemon register --cwd .
+npx -y --package laguarde-mcp@0.3.2 laguarde-daemon ensure
+npx -y --package laguarde-mcp@0.3.2 laguarde-daemon register --cwd .
 ```
 
 The registration command prints a stable project ID and MCP URL. Configure the

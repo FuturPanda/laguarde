@@ -123,7 +123,7 @@ export function buildNpmAgentInstallContract(options?: {
   packageVersion?: string;
 }): string {
   const packageName = options?.packageName ?? "laguarde-mcp";
-  const packageVersion = options?.packageVersion ?? "0.3.1";
+  const packageVersion = options?.packageVersion ?? "0.3.2";
   const packageSpec = `${packageName}@${packageVersion}`;
 
   return `LAGUARDE LOCAL MCP INSTALLATION CONTRACT

@@ -318,7 +318,7 @@ When finished, report the project ID, dashboard URL, MCP URL, skill installation
             <article class="install-box">
               <h3>Local MCP with npm</h3>
               <p>Reuse the local daemon and register the current repository.</p>
-              <pre><code id="npm-command">npx -y --package laguarde-mcp@0.3.1 laguarde-daemon register --cwd .</code></pre>
+              <pre><code id="npm-command">npx -y --package laguarde-mcp@0.3.2 laguarde-daemon register --cwd .</code></pre>
             </article>
             <article class="install-box">
               <h3>Team server with Docker</h3>
@@ -350,7 +350,7 @@ When finished, report the project ID, dashboard URL, MCP URL, skill installation
         package: document.querySelector('meta[name="laguarde-package-url"]').content || "https://www.npmjs.com/package/laguarde-mcp",
       };
       const packageName = document.querySelector('meta[name="laguarde-package-name"]').content || "laguarde-mcp";
-      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.3.1";
+      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.3.2";
       document.querySelectorAll("[data-backend-path]").forEach(link => {
         link.href = new URL(link.dataset.backendPath, `${backendOrigin}/`).href;
       });
