@@ -170,6 +170,21 @@
       .badge.promoted_candidate, .badge.approved, .badge.accepted { color: var(--allowed); border-color: rgba(114,229,154,.32); }
       .actions { display: flex; gap: 6px; align-items: flex-start; flex-shrink: 0; }
       .empty { text-align: center; color: var(--dim); padding: 60px 20px; }
+      .approval-queue {
+        margin-bottom: 22px; padding: 16px; border: 1px solid rgba(240,165,101,.34);
+        border-radius: 12px; background: rgba(240,165,101,.045);
+      }
+      .approval-queue .panel-head { margin-bottom: 13px; }
+      .approval-card { border-color: rgba(240,165,101,.26); }
+      .decision-details { display: grid; gap: 8px; margin-top: 12px; }
+      .decision-line { color: var(--muted); font-size: 12px; line-height: 1.5; }
+      .decision-line strong { color: var(--ink); font-weight: 650; }
+      .decision-code {
+        display: block; margin-top: 5px; padding: 8px 10px; border-radius: 7px;
+        border: 1px solid var(--line); background: #050c09; color: #cce5d1;
+        font: 11px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+        white-space: pre-wrap; overflow-wrap: anywhere;
+      }
 
       dialog {
         width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 40px);
@@ -316,6 +331,7 @@
         projectId: new URLSearchParams(location.search).get("project") || "default",
         guidelines: [],
         proposals: [],
+        decisions: [],
       };
       const view = document.getElementById("view");
       const dialog = document.getElementById("policy-dialog");
@@ -346,12 +362,14 @@
           state.projectId = state.projects[0]?.id || "default";
         }
         const projectQuery = `project_id=${encodeURIComponent(state.projectId)}`;
-        const [policies, proposals] = await Promise.all([
+        const [policies, proposals, decisions] = await Promise.all([
           api(`/api/guidelines?${projectQuery}`),
           api(`/api/proposals?${projectQuery}`),
+          api(`/api/decisions?${projectQuery}`),
         ]);
         state.guidelines = policies.guidelines;
         state.proposals = proposals.proposals;
+        state.decisions = decisions.decisions;
         document.getElementById("server-status").classList.add("online");
         document.querySelector("#server-status span:last-child").textContent = `online · ${health.version}`;
         document.getElementById("metric-policies").textContent = state.guidelines.filter(p => p.status === "active").length;
@@ -390,7 +408,43 @@
           general_rule: "Guardrail", code_rule: "Code rule",
           project_init: "Project init", pr_review_guideline: "PR review",
         };
+        const pendingApprovals = state.decisions.filter(decision => decision.state === "pending_approval");
         view.innerHTML = `
+          ${pendingApprovals.length ? `
+            <section class="approval-queue" aria-labelledby="approval-title">
+              <div class="panel-head">
+                <div>
+                  <h2 class="panel-title" id="approval-title">Pending approvals · ${pendingApprovals.length}</h2>
+                  <p class="panel-subtitle">Review the exact action recorded by the agent before allowing it to continue.</p>
+                </div>
+              </div>
+              <div class="grid">
+                ${pendingApprovals.map(decision => `
+                  <article class="card approval-card">
+                    <div class="card-top">
+                      <div>
+                        <div class="mono">${esc(decision.id)} · ${esc(new Date(decision.created_at).toLocaleString())}</div>
+                        <h3>${esc(decision.request.summary)}</h3>
+                        <div class="summary">${esc(decision.evaluation.rationale)}</div>
+                        <div class="badges">
+                          <span class="badge approval">approval required</span>
+                          <span class="badge">${esc(decision.request.action_type)}</span>
+                          ${decision.evaluation.matched_rules.map(rule => `<span class="badge">${esc(rule.name)} · ${esc(rule.revision_id)}</span>`).join("")}
+                        </div>
+                        <div class="decision-details">
+                          ${decision.request.targets?.length ? `<div class="decision-line"><strong>Targets</strong><code class="decision-code">${decision.request.targets.map(esc).join("\n")}</code></div>` : ""}
+                          ${decision.request.commands?.length ? `<div class="decision-line"><strong>Exact commands</strong><code class="decision-code">${decision.request.commands.map(esc).join("\n")}</code></div>` : ""}
+                          ${decision.request.dependencies?.length ? `<div class="decision-line"><strong>Dependencies</strong><code class="decision-code">${decision.request.dependencies.map(esc).join("\n")}</code></div>` : ""}
+                        </div>
+                      </div>
+                      <div class="actions">
+                        <button class="btn btn-small btn-primary" data-action="review-decision" data-status="approved" data-id="${esc(decision.id)}">Approve action</button>
+                        <button class="btn btn-small btn-danger" data-action="review-decision" data-status="rejected" data-id="${esc(decision.id)}">Reject</button>
+                      </div>
+                    </div>
+                  </article>`).join("")}
+              </div>
+            </section>` : ""}
           <div class="panel-head">
             <div><h2 class="panel-title">Versioned policy registry</h2><p class="panel-subtitle">Every edit creates an immutable revision.</p></div>
             <div class="toolbar">
@@ -510,6 +564,15 @@
               method: "POST", body: JSON.stringify({ status: "accepted", reviewed_by: "dashboard" }),
             });
             toast(proposal?.scope_id ? "Feedback merged as a new revision" : "Feedback merged as a new policy");
+            await refresh();
+          }
+          if (action === "review-decision") {
+            const status = button.dataset.status;
+            if (status === "rejected" && !confirm("Reject this exact agent action?")) return;
+            await api(`/api/decisions/${encodeURIComponent(button.dataset.id)}/review`, {
+              method: "POST", body: JSON.stringify({ status, reviewed_by: "dashboard" }),
+            });
+            toast(status === "approved" ? "Agent action approved" : "Agent action rejected");
             await refresh();
           }
         } catch (error) { alert(error.message); }

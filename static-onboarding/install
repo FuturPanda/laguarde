@@ -3,8 +3,8 @@ LAGUARDE LOCAL MCP INSTALLATION CONTRACT
 
 FORMAT_VERSION: 3
 PURPOSE: Reuse one local Laguarde daemon and connect the current project to it.
-NPM_PACKAGE: laguarde-mcp@0.3.0
-DAEMON_COMMAND: npx -y --package laguarde-mcp@0.3.0 laguarde-daemon
+NPM_PACKAGE: laguarde-mcp@0.3.1
+DAEMON_COMMAND: npx -y --package laguarde-mcp@0.3.1 laguarde-daemon
 DEFAULT_DAEMON_URL: http://127.0.0.1:3000
 DEFAULT_DASHBOARD_URL: http://127.0.0.1:3000/
 
@@ -32,7 +32,7 @@ INSTALLATION ALGORITHM
    - Require Node.js 24 or newer and npm/npx.
    - Do not install Node.js, npm, or system packages automatically.
    - Optionally inspect the declared package with:
-       npm view laguarde-mcp@0.3.0 name version dist.integrity
+       npm view laguarde-mcp@0.3.1 name version dist.integrity
    - Require the returned name and version to match NPM_PACKAGE.
 
 3. Reuse or start the single local daemon.
@@ -40,7 +40,7 @@ INSTALLATION ALGORITHM
    - If it reports {"status":"ok","service":"laguarde"}, reuse it. Do not
      start another Laguarde server.
    - Otherwise run exactly:
-       npx -y --package laguarde-mcp@0.3.0 laguarde-daemon ensure
+       npx -y --package laguarde-mcp@0.3.1 laguarde-daemon ensure
    - Require the command to report status "ok" and daemon_url
      "http://127.0.0.1:3000".
    - The daemon stores its shared local database in the current OS user's
@@ -49,7 +49,7 @@ INSTALLATION ALGORITHM
 
 4. Register or resolve the current Git project.
    - From the repository root run exactly:
-       npx -y --package laguarde-mcp@0.3.0 laguarde-daemon register --cwd .
+       npx -y --package laguarde-mcp@0.3.1 laguarde-daemon register --cwd .
    - This detects the Git root and origin without reading repository contents.
    - Require JSON containing project.id, dashboard_url, and mcp_url.
    - Re-running this command for the same Git origin or root must return the

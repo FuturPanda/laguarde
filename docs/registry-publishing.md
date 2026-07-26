@@ -87,8 +87,8 @@ Publish the npm package first, then push the matching version tag:
 
 ```bash
 npm publish
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.3.1
+git push origin v0.3.1
 ```
 
 The workflow refuses a tag that does not match `package.json`, and refuses to

@@ -74,9 +74,9 @@ describe("agent installation contract", () => {
   test("builds a project-scoped npm installation contract", () => {
     const contract = buildNpmAgentInstallContract();
 
-    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.3.0");
+    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.3.1");
     expect(contract).toContain(
-      "npx -y --package laguarde-mcp@0.3.0 laguarde-daemon ensure",
+      "npx -y --package laguarde-mcp@0.3.1 laguarde-daemon ensure",
     );
     expect(contract).toContain(
       "laguarde-daemon register --cwd .",

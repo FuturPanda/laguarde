@@ -34,8 +34,8 @@ API.
 For a local MCP installation, use Node.js 24 or newer:
 
 ```bash
-npx -y --package laguarde-mcp@0.3.0 laguarde-daemon ensure
-npx -y --package laguarde-mcp@0.3.0 laguarde-daemon register --cwd .
+npx -y --package laguarde-mcp@0.3.1 laguarde-daemon ensure
+npx -y --package laguarde-mcp@0.3.1 laguarde-daemon register --cwd .
 ```
 
 The first command reuses the healthy local daemon or starts it once. The second

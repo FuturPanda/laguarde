@@ -11,7 +11,7 @@
     <meta name="laguarde-docs-url" content="https://www.futur-panda.dev/laguarde/docs" />
     <meta name="laguarde-install-url" content="https://www.futur-panda.dev/laguarde/install" />
     <meta name="laguarde-package-name" content="laguarde-mcp" />
-    <meta name="laguarde-package-version" content="0.3.0" />
+    <meta name="laguarde-package-version" content="0.3.1" />
     <meta name="laguarde-package-url" content="https://www.npmjs.com/package/laguarde-mcp" />
     <link rel="alternate" type="text/plain" href="/install" data-public-link="install" title="Agent installation contract" />
     <link rel="alternate" type="text/plain" href="/llms.txt" data-backend-path="/llms.txt" title="Agent operating instructions" />
@@ -240,15 +240,21 @@
             <p>
               Paste this prompt into an agent working inside the repository. It
               tells the agent to reuse an existing Laguarde daemon, register the
-              project, configure its own MCP connection, and verify the result.
+              project, install the policy-gate skill locally, configure its own
+              MCP connection, and verify the result.
             </p>
           </div>
           <div class="prompt-panel">
             <pre><code id="agent-prompt">Install and configure Laguarde for this repository. First read the Laguarde installation contract and follow it exactly: …/install
 
-Before starting anything, check whether a Laguarde daemon is already healthy on this computer and reuse it. Do not create a second instance. Register the current Git repository, configure this agent/client to use the returned project-specific MCP URL, verify that the Laguarde MCP tools are available, then load the policy bundle for this project.
+Before starting anything, check whether a Laguarde daemon is already healthy on this computer and reuse it. Do not create a second instance. Register the current Git repository and configure this agent/client to use the returned project-specific MCP URL.
 
-When finished, report the project ID, dashboard URL, MCP URL, and verification result. Do not expose secrets or create or modify policies during setup.</code></pre>
+Install the Laguarde policy-gate skill for this project, not globally:
+npx -y skills@latest add https://github.com/FuturPanda/laguarde --skill laguarde-policy-gate --yes
+
+Read and follow the installed laguarde-policy-gate skill. Verify that the Laguarde MCP tools are available, then load the policy bundle for this project. Do not perform other material actions until the project-bound policies have loaded and Laguarde has allowed and recorded the exact action.
+
+When finished, report the project ID, dashboard URL, MCP URL, skill installation scope, and verification result. Do not expose secrets or create or modify policies during setup.</code></pre>
             <div class="prompt-actions">
               <button class="button primary" id="copy-agent-prompt">Copy prompt for agent</button>
             </div>
@@ -312,7 +318,7 @@ When finished, report the project ID, dashboard URL, MCP URL, and verification r
             <article class="install-box">
               <h3>Local MCP with npm</h3>
               <p>Reuse the local daemon and register the current repository.</p>
-              <pre><code id="npm-command">npx -y --package laguarde-mcp@0.3.0 laguarde-daemon register --cwd .</code></pre>
+              <pre><code id="npm-command">npx -y --package laguarde-mcp@0.3.1 laguarde-daemon register --cwd .</code></pre>
             </article>
             <article class="install-box">
               <h3>Team server with Docker</h3>
@@ -344,7 +350,7 @@ When finished, report the project ID, dashboard URL, MCP URL, and verification r
         package: document.querySelector('meta[name="laguarde-package-url"]').content || "https://www.npmjs.com/package/laguarde-mcp",
       };
       const packageName = document.querySelector('meta[name="laguarde-package-name"]').content || "laguarde-mcp";
-      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.3.0";
+      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.3.1";
       document.querySelectorAll("[data-backend-path]").forEach(link => {
         link.href = new URL(link.dataset.backendPath, `${backendOrigin}/`).href;
       });
@@ -355,9 +361,14 @@ When finished, report the project ID, dashboard URL, MCP URL, and verification r
       const installUrl = publicLinks.install;
       const agentPrompt = `Install and configure Laguarde for this repository. First read the Laguarde installation contract and follow it exactly: ${installUrl}
 
-Before starting anything, check whether a Laguarde daemon is already healthy on this computer and reuse it. Do not create a second instance. Register the current Git repository, configure this agent/client to use the returned project-specific MCP URL, verify that the Laguarde MCP tools are available, then load the policy bundle for this project.
+Before starting anything, check whether a Laguarde daemon is already healthy on this computer and reuse it. Do not create a second instance. Register the current Git repository and configure this agent/client to use the returned project-specific MCP URL.
 
-When finished, report the project ID, dashboard URL, MCP URL, and verification result. Do not expose secrets or create or modify policies during setup.`;
+Install the Laguarde policy-gate skill for this project, not globally:
+npx -y skills@latest add https://github.com/FuturPanda/laguarde --skill laguarde-policy-gate --yes
+
+Read and follow the installed laguarde-policy-gate skill. Verify that the Laguarde MCP tools are available, then load the policy bundle for this project. Do not perform other material actions until the project-bound policies have loaded and Laguarde has allowed and recorded the exact action.
+
+When finished, report the project ID, dashboard URL, MCP URL, skill installation scope, and verification result. Do not expose secrets or create or modify policies during setup.`;
       document.getElementById("agent-url").textContent = installUrl;
       document.getElementById("agent-prompt").textContent = agentPrompt;
       document.getElementById("npm-command").textContent = `npx -y --package ${packageName}@${packageVersion} laguarde-daemon register --cwd .`;
