@@ -51,12 +51,16 @@ function errorContent(error: unknown) {
   };
 }
 
-export function createMcpServer(service: LaguardeService): McpServer {
+export function createMcpServer(
+  service: LaguardeService,
+  options: { projectId?: string } = {},
+): McpServer {
+  const boundProjectId = options.projectId;
   const server = new McpServer(
-    { name: "laguarde", version: "0.2.1" },
+    { name: "laguarde", version: "0.3.0" },
     {
       instructions:
-        "Laguarde is the team's policy control plane. At session start, call get_policy_bundle. Before a material action, call evaluate_action. To create an immutable audit record, call record_decision with the same exact action. Never execute forbidden actions or approval-required actions without a human approval recorded in the Laguarde dashboard. When a developer expresses a reusable preference, call list_preference_proposals, then propose_preference. Agents can propose policy changes but cannot ratify them.",
+        `Laguarde is the team's policy control plane${boundProjectId ? ` for project '${boundProjectId}'` : ""}. At session start, call get_policy_bundle. Before a material action, call evaluate_action. To create an immutable audit record, call record_decision with the same exact action. Never execute forbidden actions or approval-required actions without a human approval recorded in the Laguarde dashboard. When a developer expresses a reusable preference, call list_preference_proposals, then propose_preference. Agents can propose policy changes but cannot ratify them.`,
     },
   );
 
@@ -78,7 +82,9 @@ export function createMcpServer(service: LaguardeService): McpServer {
     },
     async ({ context_id, kinds }) => {
       try {
-        return jsonContent(service.getPolicyBundle(context_id, kinds));
+        return jsonContent(
+          service.getPolicyBundle(boundProjectId ?? context_id, kinds),
+        );
       } catch (error) {
         return errorContent(error);
       }
@@ -101,7 +107,10 @@ export function createMcpServer(service: LaguardeService): McpServer {
     async (input) => {
       try {
         return jsonContent(
-          service.evaluateAction(input as unknown as ActionRequest),
+          service.evaluateAction({
+            ...(input as unknown as ActionRequest),
+            ...(boundProjectId ? { context_id: boundProjectId } : {}),
+          }),
         );
       } catch (error) {
         return errorContent(error);
@@ -125,7 +134,10 @@ export function createMcpServer(service: LaguardeService): McpServer {
     async (input) => {
       try {
         return jsonContent(
-          service.recordDecision(input as unknown as ActionRequest),
+          service.recordDecision({
+            ...(input as unknown as ActionRequest),
+            ...(boundProjectId ? { context_id: boundProjectId } : {}),
+          }),
         );
       } catch (error) {
         return errorContent(error);
@@ -152,7 +164,7 @@ export function createMcpServer(service: LaguardeService): McpServer {
     },
     async ({ state }) => {
       const proposals = service.store
-        .listProposals()
+        .listProposals(boundProjectId)
         .filter((proposal) => !state || proposal.state === state);
       return jsonContent({ count: proposals.length, proposals });
     },
@@ -193,7 +205,12 @@ export function createMcpServer(service: LaguardeService): McpServer {
     },
     async (input) => {
       try {
-        return jsonContent(service.proposePreference(input));
+        return jsonContent(
+          service.proposePreference({
+            ...input,
+            ...(boundProjectId ? { project_id: boundProjectId } : {}),
+          }),
+        );
       } catch (error) {
         return errorContent(error);
       }

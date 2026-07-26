@@ -16,6 +16,7 @@ import {
   type ProposalObservation,
   type ProposalState,
   type ProposalWithObservations,
+  type ProjectSummary,
 } from "../domain.js";
 import { seedStore } from "./seed.js";
 import { Database } from "./database.js";
@@ -28,6 +29,7 @@ interface StoreOptions {
 
 interface GuidelineRow {
   id: string;
+  project_id: string | null;
   kind: GuidelineKind;
   name: string;
   summary: string;
@@ -46,9 +48,12 @@ interface ContextRow {
   id: string;
   name: string;
   description: string | null;
+  repository_url: string | null;
+  root_path: string | null;
   active_kinds: string;
   tags: string;
   created_at: string;
+  last_seen_at: string | null;
 }
 
 interface DecisionRow {
@@ -68,6 +73,7 @@ interface DecisionRow {
 
 interface ProposalRow {
   id: string;
+  project_id: string | null;
   scope_kind: GuidelineKind;
   scope_id: string | null;
   title: string;
@@ -114,6 +120,7 @@ function proposalSlug(value: string): string {
 function mapGuideline(row: GuidelineRow): Guideline {
   return {
     id: row.id,
+    project_id: row.project_id,
     kind: row.kind,
     name: row.name,
     summary: row.summary,
@@ -134,6 +141,7 @@ function mapContext(row: ContextRow): Context {
     ...row,
     active_kinds: parseJson<GuidelineKind[]>(row.active_kinds),
     tags: parseJson<string[]>(row.tags),
+    last_seen_at: row.last_seen_at ?? row.created_at,
   };
 }
 
@@ -159,6 +167,7 @@ function mapDecision(row: DecisionRow): Decision {
 function mapProposal(row: ProposalRow): Proposal {
   return {
     ...row,
+    project_id: row.project_id ?? "default",
     proposed_by: parseJson<string[]>(row.proposed_by),
   };
 }
@@ -192,6 +201,8 @@ export class PolicyStore {
     id: string;
     name: string;
     description?: string;
+    repository_url?: string;
+    root_path?: string;
     active_kinds?: GuidelineKind[];
     tags?: string[];
   }): Context {
@@ -199,15 +210,19 @@ export class PolicyStore {
     this.db
       .query(
         `INSERT INTO contexts
-          (id, name, description, active_kinds, tags, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+          (id, name, description, repository_url, root_path, active_kinds,
+           tags, created_at, last_seen_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         input.id,
         input.name,
         input.description ?? null,
+        input.repository_url ?? null,
+        input.root_path ?? null,
         stringify(input.active_kinds ?? [...guidelineKinds]),
         stringify(input.tags ?? []),
+        createdAt,
         createdAt,
       );
     return this.getContext(input.id)!;
@@ -227,8 +242,106 @@ export class PolicyStore {
       .map(mapContext);
   }
 
+  resolveProject(input: {
+    name: string;
+    repository_url?: string;
+    root_path?: string;
+    description?: string;
+    tags?: string[];
+  }): Context {
+    const repositoryUrl = input.repository_url?.trim() || null;
+    const rootPath = input.root_path?.trim() || null;
+    let existing: ContextRow | null = null;
+    if (repositoryUrl) {
+      existing = this.db
+        .query<ContextRow, [string]>(
+          "SELECT * FROM contexts WHERE repository_url = ?",
+        )
+        .get(repositoryUrl);
+    }
+    if (!existing && rootPath) {
+      existing = this.db
+        .query<ContextRow, [string]>(
+          "SELECT * FROM contexts WHERE root_path = ?",
+        )
+        .get(rootPath);
+    }
+    if (existing) {
+      this.db
+        .query(
+          `UPDATE contexts
+           SET name = ?, description = COALESCE(?, description),
+               repository_url = COALESCE(?, repository_url),
+               root_path = COALESCE(?, root_path), last_seen_at = ?
+           WHERE id = ?`,
+        )
+        .run(
+          input.name.trim(),
+          input.description?.trim() || null,
+          repositoryUrl,
+          rootPath,
+          now(),
+          existing.id,
+        );
+      return this.getContext(existing.id)!;
+    }
+
+    const base = proposalSlug(input.name).replace(/^feedback-policy$/, "project");
+    let id = base === "default" ? "project-default" : base;
+    let suffix = 2;
+    while (this.getContext(id)) {
+      id = `${base}-${suffix}`;
+      suffix += 1;
+    }
+    return this.createContext({
+      id,
+      name: input.name.trim(),
+      description: input.description,
+      repository_url: repositoryUrl ?? undefined,
+      root_path: rootPath ?? undefined,
+      tags: input.tags,
+    });
+  }
+
+  touchContext(id: string): Context | null {
+    const result = this.db
+      .query("UPDATE contexts SET last_seen_at = ? WHERE id = ?")
+      .run(now(), id);
+    return result.changes > 0 ? this.getContext(id) : null;
+  }
+
+  listProjects(): ProjectSummary[] {
+    return this.listContexts().map((project) => {
+      const policyRow = this.db
+        .query<{ count: number }, [string]>(
+          `SELECT COUNT(*) AS count FROM guidelines
+           WHERE project_id = ? AND deleted_at IS NULL`,
+        )
+        .get(project.id);
+      const decisionRow = this.db
+        .query<{ count: number }, [string]>(
+          "SELECT COUNT(*) AS count FROM decisions WHERE context_id = ?",
+        )
+        .get(project.id);
+      const proposalRow = this.db
+        .query<{ count: number }, [string, string]>(
+          `SELECT COUNT(*) AS count FROM proposals
+           WHERE (project_id = ? OR (project_id IS NULL AND ? = 'default'))
+             AND state IN ('pending', 'promoted_candidate')`,
+        )
+        .get(project.id, project.id);
+      return {
+        ...project,
+        project_policy_count: policyRow?.count ?? 0,
+        decision_count: decisionRow?.count ?? 0,
+        open_proposal_count: proposalRow?.count ?? 0,
+      };
+    });
+  }
+
   createGuideline(input: {
     id: string;
+    project_id?: string | null;
     kind: GuidelineKind;
     name: string;
     summary: string;
@@ -240,6 +353,9 @@ export class PolicyStore {
     rationale?: string;
     author?: string;
   }): Guideline {
+    if (input.project_id && !this.getContext(input.project_id)) {
+      throw new Error(`Project '${input.project_id}' not found`);
+    }
     const createdAt = now();
     const revisionId = `${input.id}#v1`;
     const fields = input.fields ?? {};
@@ -247,12 +363,13 @@ export class PolicyStore {
       this.db
         .query(
           `INSERT INTO guidelines
-            (id, kind, name, summary, tags, context_tags, status,
+            (id, project_id, kind, name, summary, tags, context_tags, status,
              current_revision_id, fields, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           input.id,
+          input.project_id ?? null,
           input.kind,
           input.name,
           input.summary,
@@ -300,6 +417,8 @@ export class PolicyStore {
     kind?: GuidelineKind;
     status?: GuidelineStatus;
     query?: string;
+    project_id?: string;
+    include_global?: boolean;
   } = {}): Guideline[] {
     const conditions = ["g.deleted_at IS NULL"];
     const params: string[] = [];
@@ -317,6 +436,14 @@ export class PolicyStore {
       );
       const search = `%${filters.query}%`;
       params.push(search, search, search, search);
+    }
+    if (filters.project_id) {
+      if (filters.include_global !== false) {
+        conditions.push("(g.project_id = ? OR g.project_id IS NULL)");
+      } else {
+        conditions.push("g.project_id = ?");
+      }
+      params.push(filters.project_id);
     }
 
     return this.db
@@ -408,7 +535,11 @@ export class PolicyStore {
   applicableGuidelines(contextId = "default"): Guideline[] {
     const context = this.getContext(contextId);
     if (!context) throw new Error(`Context '${contextId}' not found`);
-    return this.listGuidelines({ status: "active" }).filter((guideline) => {
+    return this.listGuidelines({
+      status: "active",
+      project_id: contextId,
+      include_global: true,
+    }).filter((guideline) => {
       const activeKind = context.active_kinds.includes(guideline.kind);
       const appliesEverywhere = guideline.context_tags.length === 0;
       const matchingTag = guideline.context_tags.some((tag) =>
@@ -428,6 +559,7 @@ export class PolicyStore {
     if (!this.getContext(contextId)) {
       throw new Error(`Context '${contextId}' not found`);
     }
+    this.touchContext(contextId);
     const revisions = evaluation.matched_rules.map(
       (match) => match.revision_id,
     );
@@ -461,7 +593,16 @@ export class PolicyStore {
     return row ? mapDecision(row) : null;
   }
 
-  listDecisions(limit = 100): Decision[] {
+  listDecisions(limit = 100, projectId?: string): Decision[] {
+    if (projectId) {
+      return this.db
+        .query<DecisionRow, [string, number]>(
+          `SELECT * FROM decisions
+           WHERE context_id = ? ORDER BY created_at DESC LIMIT ?`,
+        )
+        .all(projectId, limit)
+        .map(mapDecision);
+    }
     return this.db
       .query<DecisionRow, [number]>(
         "SELECT * FROM decisions ORDER BY created_at DESC LIMIT ?",
@@ -497,6 +638,7 @@ export class PolicyStore {
   }
 
   createProposal(input: {
+    project_id?: string;
     scope_kind: GuidelineKind;
     scope_id?: string;
     title: string;
@@ -504,6 +646,10 @@ export class PolicyStore {
     suggested_edit: string;
     proposed_by: string;
   }): ProposalWithObservations {
+    const projectId = input.project_id ?? "default";
+    if (!this.getContext(projectId)) {
+      throw new Error(`Project '${projectId}' not found`);
+    }
     if (input.scope_id) {
       const guideline = this.getGuideline(input.scope_id);
       if (!guideline) {
@@ -514,6 +660,14 @@ export class PolicyStore {
           `Guideline '${input.scope_id}' is ${guideline.kind}, not ${input.scope_kind}`,
         );
       }
+      if (
+        guideline.project_id &&
+        guideline.project_id !== projectId
+      ) {
+        throw new Error(
+          `Guideline '${input.scope_id}' belongs to project '${guideline.project_id}'`,
+        );
+      }
     }
     const id = `prop-${randomUUID()}`;
     const createdAt = now();
@@ -521,12 +675,13 @@ export class PolicyStore {
       this.db
         .query(
           `INSERT INTO proposals
-            (id, scope_kind, scope_id, title, suggested_edit, state,
+            (id, project_id, scope_kind, scope_id, title, suggested_edit, state,
              convergence_count, proposed_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 'pending', 1, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?, ?)`,
         )
         .run(
           id,
+          projectId,
           input.scope_kind,
           input.scope_id ?? null,
           input.title,
@@ -543,6 +698,7 @@ export class PolicyStore {
       );
     });
     insert();
+    this.touchContext(projectId);
     return this.getProposal(id)!;
   }
 
@@ -579,6 +735,7 @@ export class PolicyStore {
         );
     });
     update();
+    this.touchContext(proposal.project_id);
     return this.getProposal(id);
   }
 
@@ -617,19 +774,24 @@ export class PolicyStore {
     return { ...mapProposal(row), observations };
   }
 
-  listProposals(): ProposalWithObservations[] {
-    const rows = this.db
-      .query<ProposalRow, []>(
-        `SELECT * FROM proposals
-         ORDER BY
-           CASE state
-             WHEN 'promoted_candidate' THEN 0
-             WHEN 'pending' THEN 1
-             ELSE 2
-           END,
-           updated_at DESC`,
-      )
-      .all();
+  listProposals(projectId?: string): ProposalWithObservations[] {
+    const where = projectId
+      ? "WHERE project_id = ? OR (project_id IS NULL AND ? = 'default')"
+      : "";
+    const query = `SELECT * FROM proposals
+       ${where}
+       ORDER BY
+         CASE state
+           WHEN 'promoted_candidate' THEN 0
+           WHEN 'pending' THEN 1
+           ELSE 2
+         END,
+         updated_at DESC`;
+    const rows = projectId
+      ? this.db
+          .query<ProposalRow, [string, string]>(query)
+          .all(projectId, projectId)
+      : this.db.query<ProposalRow, []>(query).all();
     return rows.map((row) => this.getProposal(row.id)!);
   }
 
@@ -655,6 +817,10 @@ export class PolicyStore {
           const latestObservation = proposal.observations.at(-1)?.observation;
           this.createGuideline({
             id: guidelineId,
+            project_id:
+              proposal.project_id === "default"
+                ? null
+                : proposal.project_id,
             kind: proposal.scope_kind,
             name: proposal.title,
             summary: latestObservation ?? proposal.title,
@@ -691,6 +857,7 @@ export class PolicyStore {
         .run(status, acceptedEdit, reviewedBy, now(), id);
     });
     update();
+    this.touchContext(proposal.project_id);
     return this.getProposal(id);
   }
 

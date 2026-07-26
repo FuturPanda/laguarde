@@ -2,16 +2,17 @@
 
 ## 1. Load the applicable policy
 
-Call `get_policy_bundle` when starting work:
+Connect through the project's `/mcp/projects/:projectId` URL, then call
+`get_policy_bundle` when starting work:
 
 ```json
-{
-  "context_id": "default"
-}
+{}
 ```
 
-The result contains all active policies plus immutable `current_revision_id`
-values. Decisions later retain these identifiers even if a policy changes.
+The endpoint binds every tool call to the registered project, regardless of an
+agent-supplied context. The result contains inherited global policies,
+project-specific policies, and immutable `current_revision_id` values.
+Decisions retain these identifiers even if a policy later changes.
 
 ## 2. Preview an action
 
@@ -19,7 +20,6 @@ Submit what the agent actually intends to do:
 
 ```json
 {
-  "context_id": "default",
   "summary": "Add input validation to the user service",
   "action_type": "edit",
   "targets": [

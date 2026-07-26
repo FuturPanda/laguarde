@@ -1,5 +1,19 @@
 import type { Database } from "./database.js";
 
+function ensureColumn(
+  db: Database,
+  table: "contexts" | "guidelines" | "proposals",
+  column: string,
+  declaration: string,
+): void {
+  const columns = db
+    .query<{ name: string }, []>(`PRAGMA table_info(${table})`)
+    .all();
+  if (!columns.some((item) => item.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${declaration}`);
+  }
+}
+
 export function initializeSchema(db: Database): void {
   db.exec(`
     PRAGMA journal_mode = WAL;
@@ -84,5 +98,32 @@ export function initializeSchema(db: Database): void {
       ON decisions(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_proposals_state
       ON proposals(state);
+  `);
+
+  ensureColumn(db, "contexts", "repository_url", "TEXT");
+  ensureColumn(db, "contexts", "root_path", "TEXT");
+  ensureColumn(db, "contexts", "last_seen_at", "TEXT");
+  ensureColumn(
+    db,
+    "guidelines",
+    "project_id",
+    "TEXT REFERENCES contexts(id)",
+  );
+  ensureColumn(
+    db,
+    "proposals",
+    "project_id",
+    "TEXT REFERENCES contexts(id)",
+  );
+
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_contexts_repository_url
+      ON contexts(repository_url) WHERE repository_url IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_contexts_root_path
+      ON contexts(root_path) WHERE root_path IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_guidelines_project
+      ON guidelines(project_id) WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_proposals_project_state
+      ON proposals(project_id, state);
   `);
 }

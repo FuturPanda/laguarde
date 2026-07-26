@@ -10,6 +10,7 @@ COPY public ./public
 COPY llms.txt ./
 
 ENV PORT=3000
+ENV LAGUARDE_HOST=0.0.0.0
 ENV LAGUARDE_DB_PATH=/data/laguarde.db
 ENV LAGUARDE_EVIDENCE_DIR=/data/decisions
 

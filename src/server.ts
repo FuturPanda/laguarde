@@ -46,13 +46,23 @@ export function createApp(
     res.json({
       status: "ok",
       service: "laguarde",
-      version: "0.2.1",
+      version: "0.3.0",
+      instance_id: process.env.LAGUARDE_INSTANCE_ID ?? null,
       guidelines: store.guidelineCount(),
+      projects: store.listContexts().length,
     });
   });
 
-  app.post("/mcp", async (req, res) => {
-    const mcp = createMcpServer(service);
+  const handleMcp = async (
+    req: express.Request,
+    res: express.Response,
+    projectId: string,
+  ) => {
+    if (!store.touchContext(projectId)) {
+      res.status(404).json({ error: `Project '${projectId}' not found` });
+      return;
+    }
+    const mcp = createMcpServer(service, { projectId });
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
@@ -62,6 +72,14 @@ export function createApp(
     });
     await mcp.connect(transport);
     await transport.handleRequest(req, res, req.body);
+  };
+
+  app.post("/mcp", async (req, res) => {
+    await handleMcp(req, res, "default");
+  });
+
+  app.post("/mcp/projects/:projectId", async (req, res) => {
+    await handleMcp(req, res, req.params.projectId);
   });
 
   app.use(
@@ -87,8 +105,9 @@ const isMain =
 if (isMain) {
   const { service, store } = createRuntime();
   const port = Number(process.env.PORT ?? 3000);
-  createApp(service, store).listen(port, () => {
-    console.error(`Laguarde dashboard: http://localhost:${port}`);
-    console.error(`Laguarde MCP:       http://localhost:${port}/mcp`);
+  const host = process.env.LAGUARDE_HOST ?? "127.0.0.1";
+  createApp(service, store).listen(port, host, () => {
+    console.error(`Laguarde dashboard: http://${host}:${port}`);
+    console.error(`Laguarde MCP:       http://${host}:${port}/mcp`);
   });
 }

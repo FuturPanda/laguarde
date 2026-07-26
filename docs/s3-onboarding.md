@@ -14,7 +14,7 @@ configuration publishes:
 
 - human documentation: `https://www.futur-panda.dev/laguarde/docs`;
 - agent contract: `https://www.futur-panda.dev/laguarde/install`;
-- npm package: `laguarde-mcp@0.2.1`.
+- npm package: `laguarde-mcp@0.3.0`.
 
 This creates:
 
@@ -24,9 +24,9 @@ static-onboarding/
 └── install              # agent contract, text/plain
 ```
 
-The agent reads `/install`, verifies the package identity through npm, and adds
-a project-scoped stdio MCP configuration using
-`npx -y laguarde-mcp@0.2.1`.
+The agent reads `/install`, verifies the package identity through npm, reuses or
+starts the single local daemon, registers the repository, and adds a
+project-scoped Streamable HTTP configuration using the returned MCP URL.
 
 ## 2. Upload
 

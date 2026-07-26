@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { PolicyStore } from "../src/db/store.js";
+import { Database } from "../src/db/database.js";
+import { initializeSchema } from "../src/db/schema.js";
 import { LaguardeService } from "../src/service.js";
 import { globMatches } from "../src/policy.js";
 import {
@@ -32,7 +34,10 @@ describe("agent installation contract", () => {
     );
 
     expect(contract).toContain(
-      "MCP_URL: https://policies.example.test/mcp",
+      "https://policies.example.test/mcp/projects/RETURNED_PROJECT_ID",
+    );
+    expect(contract).toContain(
+      "PROJECT_RESOLUTION_URL: https://policies.example.test/api/projects/resolve",
     );
     expect(contract).toContain(
       "HEALTH_URL: https://policies.example.test/health",
@@ -69,9 +74,17 @@ describe("agent installation contract", () => {
   test("builds a project-scoped npm installation contract", () => {
     const contract = buildNpmAgentInstallContract();
 
-    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.2.1");
-    expect(contract).toContain("COMMAND: npx");
-    expect(contract).toContain('"args": ["-y", "laguarde-mcp@0.2.1"]');
+    expect(contract).toContain("NPM_PACKAGE: laguarde-mcp@0.3.0");
+    expect(contract).toContain(
+      "npx -y --package laguarde-mcp@0.3.0 laguarde-daemon ensure",
+    );
+    expect(contract).toContain(
+      "laguarde-daemon register --cwd .",
+    );
+    expect(contract).toContain(
+      '"url": "http://127.0.0.1:3000/mcp/projects/RETURNED_PROJECT_ID"',
+    );
+    expect(contract).toContain("reuse it");
     expect(contract).toContain("Require Node.js 24 or newer");
     expect(contract).toContain("Prefer project/workspace MCP configuration");
     expect(contract).toContain("It does not authorize elevated privileges");
@@ -87,7 +100,153 @@ describe("agent installation contract", () => {
     expect(contract).toContain(
       "NPM_PACKAGE: @example/laguarde@2.3.4",
     );
-    expect(contract).toContain('"@example/laguarde@2.3.4"');
+    expect(contract).toContain(
+      "npx -y --package @example/laguarde@2.3.4 laguarde-daemon",
+    );
+  });
+});
+
+describe("project registry and scoping", () => {
+  test("adds project metadata to an existing database without losing contexts", () => {
+    const db = new Database(":memory:");
+    db.exec(`
+      CREATE TABLE contexts (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        active_kinds TEXT NOT NULL,
+        tags TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL
+      );
+      INSERT INTO contexts
+        (id, name, active_kinds, tags, created_at)
+      VALUES
+        ('legacy', 'Legacy context', '[]', '[]', '2025-01-01T00:00:00.000Z');
+    `);
+
+    initializeSchema(db);
+    const migrated = db
+      .query<
+        {
+          name: string;
+          repository_url: string | null;
+          root_path: string | null;
+          last_seen_at: string | null;
+        },
+        [string]
+      >(
+        `SELECT name, repository_url, root_path, last_seen_at
+         FROM contexts WHERE id = ?`,
+      )
+      .get("legacy");
+
+    expect(migrated?.name).toBe("Legacy context");
+    expect(migrated?.repository_url).toBeNull();
+    expect(migrated?.root_path).toBeNull();
+    expect(migrated?.last_seen_at).toBeNull();
+    db.close();
+  });
+
+  test("deduplicates a project by repository and retains activity metadata", () => {
+    const { store } = setup();
+    const first = store.resolveProject({
+      name: "Laguarde",
+      repository_url: "https://github.com/FuturPanda/laguarde",
+      root_path: "/work/laguarde",
+    });
+    const second = store.resolveProject({
+      name: "Laguarde renamed checkout",
+      repository_url: "https://github.com/FuturPanda/laguarde",
+      root_path: "/work/laguarde-two",
+    });
+
+    expect(second.id).toBe(first.id);
+    expect(second.name).toBe("Laguarde renamed checkout");
+    expect(second.root_path).toBe("/work/laguarde-two");
+    expect(store.listProjects().filter(project => project.id === first.id)).toHaveLength(1);
+    store.close();
+  });
+
+  test("inherits global policy while isolating project policy and activity", () => {
+    const { store, service } = setup();
+    const project = store.resolveProject({
+      name: "Frontend",
+      repository_url: "https://example.test/frontend",
+      root_path: "/work/frontend",
+    });
+    store.createGuideline({
+      id: "code-frontend-components",
+      project_id: project.id,
+      kind: "code_rule",
+      name: "Use project components",
+      summary: "Reuse the frontend component library.",
+      body: "Prefer components from the local design system.",
+    });
+
+    const bundle = service.getPolicyBundle(project.id);
+    expect(bundle.guidelines.some(rule => rule.id === "guard-sensitive-files")).toBe(true);
+    expect(bundle.guidelines.some(rule => rule.id === "code-frontend-components")).toBe(true);
+    expect(service.getPolicyBundle("default").guidelines.some(
+      rule => rule.id === "code-frontend-components",
+    )).toBe(false);
+
+    const proposal = service.proposePreference({
+      project_id: project.id,
+      scope_kind: "general_rule",
+      title: "Keep the selected formatter",
+      observation: "Do not replace the formatter during unrelated work.",
+      suggested_edit: "Formatter changes require explicit human approval.",
+      proposed_by: "Agent",
+    });
+    const merged = store.reviewProposal(proposal.id, "accepted", "dashboard")!;
+    const created = store.getGuideline(merged.scope_id!)!;
+    expect(created.project_id).toBe(project.id);
+    expect(store.listProposals(project.id)).toHaveLength(1);
+    expect(store.listProposals("default")).toHaveLength(0);
+
+    service.recordDecision({
+      context_id: project.id,
+      summary: "Review the component implementation",
+      action_type: "review",
+      targets: ["src/component.ts"],
+    });
+    const summary = store.listProjects().find(item => item.id === project.id)!;
+    expect(summary.project_policy_count).toBe(2);
+    expect(summary.decision_count).toBe(1);
+    store.close();
+  });
+
+  test("rejects a proposal targeting another project's policy", () => {
+    const { store, service } = setup();
+    const projectA = store.resolveProject({
+      name: "Project A",
+      root_path: "/work/project-a",
+    });
+    const projectB = store.resolveProject({
+      name: "Project B",
+      root_path: "/work/project-b",
+    });
+    store.createGuideline({
+      id: "code-project-a-only",
+      project_id: projectA.id,
+      kind: "code_rule",
+      name: "Project A only",
+      summary: "A private project policy.",
+      body: "Only Project A may revise this policy.",
+    });
+
+    expect(() =>
+      service.proposePreference({
+        project_id: projectB.id,
+        scope_kind: "code_rule",
+        scope_id: "code-project-a-only",
+        title: "Cross-project edit",
+        observation: "Try to revise another project.",
+        suggested_edit: "This must not be accepted.",
+        proposed_by: "Agent",
+      }),
+    ).toThrow("belongs to project 'project-a'");
+    store.close();
   });
 });
 

@@ -7,32 +7,41 @@ Prerequisites:
 - Node.js 24 or newer with npm/npx;
 - a writable directory for the SQLite database and decision evidence.
 
-Configure the current MCP client to launch:
+Ensure the one local daemon is running, then register the current repository:
+
+```bash
+npx -y --package laguarde-mcp@0.3.0 laguarde-daemon ensure
+npx -y --package laguarde-mcp@0.3.0 laguarde-daemon register --cwd .
+```
+
+The registration command prints a stable project ID and MCP URL. Configure the
+current project's MCP client with that URL:
 
 ```json
 {
   "mcpServers": {
     "laguarde": {
-      "command": "npx",
-      "args": ["-y", "laguarde-mcp@0.2.1"]
+      "type": "http",
+      "url": "http://127.0.0.1:3000/mcp/projects/RETURNED_PROJECT_ID"
     }
   }
 }
 ```
 
-The client owns the stdio subprocess. Laguarde also attempts to expose its
-dashboard on port `3000`; a port collision does not stop the MCP connection.
-The relevant local settings are:
+`laguarde-daemon ensure` checks the health endpoint before starting anything,
+so repeated installations reuse the same process and database. The relevant
+local settings are:
 
 - dashboard: `http://127.0.0.1:3000/`;
-- persistent data: `./.laguarde/`.
+- persistent data: `~/.laguarde/` by default for the packaged daemon.
 
 Configuration:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `LAGUARDE_DASHBOARD_PORT` | `3000` | Local dashboard port; set to `0` to disable |
-| `LAGUARDE_DATA_DIR` | `./.laguarde` | Persistent data directory |
+| `LAGUARDE_PORT` | `3000` | Local daemon port used by `laguarde-daemon` |
+| `LAGUARDE_HOST` | `127.0.0.1` | HTTP bind address; containers set `0.0.0.0` |
+| `LAGUARDE_DATA_DIR` | `~/.laguarde` | Packaged daemon data directory |
 | `LAGUARDE_DB_PATH` | `<data-dir>/laguarde.db` | SQLite database override |
 | `LAGUARDE_EVIDENCE_DIR` | `<data-dir>/decisions` | Markdown evidence override |
 
@@ -53,8 +62,9 @@ The supplied container stores mutable state under `/data`.
 docker compose up --build
 ```
 
-Place an HTTPS reverse proxy in front of Laguarde and configure agent clients
-with `https://your-host.example/mcp`.
+Place an HTTPS reverse proxy in front of Laguarde, register each project through
+`POST /api/projects/resolve`, and configure agents with the returned
+`https://your-host.example/mcp/projects/:projectId` endpoint.
 
 The prototype has no application authentication or roles. Do not expose it to
 the public internet. Run it on a trusted local or private team network until an
@@ -66,13 +76,12 @@ a live instance.
 
 ## MCP clients
 
-Any Streamable HTTP MCP client can use the `/mcp` endpoint. For example, a
-client that supports URL-based MCP servers should be configured with:
+Any Streamable HTTP MCP client can use a project-bound endpoint. For example:
 
 ```text
 name: laguarde
 transport: streamable-http
-url: http://localhost:3000/mcp
+url: http://localhost:3000/mcp/projects/your-project-id
 ```
 
 Client-specific configuration changes over time; use the client's current MCP

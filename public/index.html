@@ -113,6 +113,17 @@
       .tab.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
       .tab-count { opacity: .65; margin-left: 5px; font: 11px ui-monospace, monospace; }
 
+      .project-bar {
+        display: flex; justify-content: space-between; align-items: center; gap: 18px;
+        margin: 0 0 14px; padding: 13px 15px; border: 1px solid var(--line);
+        border-radius: 11px; background: rgba(13, 25, 20, .72);
+      }
+      .project-picker { display: flex; align-items: center; gap: 10px; min-width: 280px; }
+      .project-picker span { color: var(--muted); font-size: 12px; }
+      .project-picker select { min-width: 210px; }
+      .project-meta { color: var(--muted); font: 11px/1.5 ui-monospace, monospace; text-align: right; }
+      .project-meta strong { color: var(--ink); font-weight: 650; }
+
       .panel { padding: 20px; min-height: 320px; }
       .panel-head {
         display: flex; justify-content: space-between; align-items: center;
@@ -192,6 +203,10 @@
         .hero-main { padding: 22px; }
         .panel { padding: 14px; }
         .panel-head, .card-top { align-items: flex-start; flex-direction: column; }
+        .project-bar { align-items: flex-start; flex-direction: column; }
+        .project-picker { min-width: 0; width: 100%; }
+        .project-picker select { min-width: 0; flex: 1; }
+        .project-meta { text-align: left; overflow-wrap: anywhere; }
         .form-grid { grid-template-columns: 1fr; }
         label.full { grid-column: auto; }
         .status span:last-child { display: none; }
@@ -237,6 +252,14 @@
         <button class="tab active" data-tab="policies">Policies <span class="tab-count" id="count-policies">0</span></button>
         <button class="tab" data-tab="feedback">Feedback queue <span class="tab-count" id="count-feedback">0</span></button>
       </nav>
+
+      <section class="project-bar" aria-label="Current project">
+        <label class="project-picker">
+          <span>Project</span>
+          <select class="field" id="project-select"></select>
+        </label>
+        <div class="project-meta" id="project-meta">Loading project registry…</div>
+      </section>
 
       <section class="panel" id="view"></section>
     </main>
@@ -287,7 +310,13 @@
     <div class="toast" id="toast" role="status"></div>
 
     <script>
-      const state = { tab: "policies", guidelines: [], proposals: [] };
+      const state = {
+        tab: "policies",
+        projects: [],
+        projectId: new URLSearchParams(location.search).get("project") || "default",
+        guidelines: [],
+        proposals: [],
+      };
       const view = document.getElementById("view");
       const dialog = document.getElementById("policy-dialog");
 
@@ -309,8 +338,17 @@
         setTimeout(() => element.classList.remove("show"), 2200);
       };
       async function refresh() {
-        const [health, policies, proposals] = await Promise.all([
-          api("/health"), api("/api/guidelines"), api("/api/proposals"),
+        const [health, projectResponse] = await Promise.all([
+          api("/health"), api("/api/projects"),
+        ]);
+        state.projects = projectResponse.projects;
+        if (!state.projects.some(project => project.id === state.projectId)) {
+          state.projectId = state.projects[0]?.id || "default";
+        }
+        const projectQuery = `project_id=${encodeURIComponent(state.projectId)}`;
+        const [policies, proposals] = await Promise.all([
+          api(`/api/guidelines?${projectQuery}`),
+          api(`/api/proposals?${projectQuery}`),
         ]);
         state.guidelines = policies.guidelines;
         state.proposals = proposals.proposals;
@@ -321,7 +359,24 @@
         document.getElementById("metric-proposals").textContent = state.proposals.filter(p => ["pending", "promoted_candidate"].includes(p.state)).length;
         document.getElementById("count-policies").textContent = state.guidelines.length;
         document.getElementById("count-feedback").textContent = state.proposals.length;
+        renderProjectBar();
         render();
+      }
+
+      function renderProjectBar() {
+        const select = document.getElementById("project-select");
+        select.innerHTML = state.projects.map(project =>
+          `<option value="${esc(project.id)}" ${project.id === state.projectId ? "selected" : ""}>${esc(project.id === "default" ? "Global / unassigned" : project.name)}</option>`
+        ).join("");
+        const project = state.projects.find(item => item.id === state.projectId);
+        const meta = document.getElementById("project-meta");
+        if (!project) {
+          meta.textContent = "No project registered";
+          return;
+        }
+        const identity = project.repository_url || project.root_path || "Global policies and unassigned activity";
+        const seen = new Date(project.last_seen_at).toLocaleString();
+        meta.innerHTML = `<strong>${esc(identity)}</strong><br>${project.project_policy_count} project policies · ${project.open_proposal_count} open proposals · ${project.decision_count} decisions · seen ${esc(seen)}<br>MCP ${esc(`${location.origin}/mcp/projects/${project.id}`)}`;
       }
 
       function render() {
@@ -353,6 +408,7 @@
                     <div class="summary">${esc(policy.summary)}</div>
                     <div class="badges">
                       <span class="badge">${esc(kindNames[policy.kind])}</span>
+                      <span class="badge">${policy.project_id ? `project · ${esc(policy.project_id)}` : "global"}</span>
                       <span class="badge ${esc(policy.status)}">${esc(policy.status)}</span>
                       ${policy.fields.level ? `<span class="badge ${esc(policy.fields.level)}">${esc(policy.fields.level)}</span>` : ""}
                       ${policy.tags.map(tag => `<span class="badge">${esc(tag)}</span>`).join("")}
@@ -459,6 +515,14 @@
         } catch (error) { alert(error.message); }
       });
 
+      document.getElementById("project-select").addEventListener("change", async event => {
+        state.projectId = event.target.value;
+        const url = new URL(location.href);
+        url.searchParams.set("project", state.projectId);
+        history.replaceState(null, "", url);
+        await refresh();
+      });
+
       view.addEventListener("input", event => {
         if (event.target.id !== "policy-search") return;
         const query = event.target.value.toLowerCase();
@@ -476,6 +540,7 @@
           if (kind === "general_rule") fields.level = document.getElementById("policy-level").value;
           const payload = {
             id: document.getElementById("policy-id").value,
+            project_id: state.projectId,
             kind,
             name: document.getElementById("policy-name").value,
             summary: document.getElementById("policy-summary").value,

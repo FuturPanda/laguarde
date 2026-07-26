@@ -6,6 +6,7 @@ Dashboard: http://localhost:3000/
 Human guide: http://localhost:3000/guide
 Agent installation contract: http://localhost:3000/install
 MCP endpoint: http://localhost:3000/mcp
+Project MCP endpoints: http://localhost:3000/mcp/projects/:projectId
 Health check: http://localhost:3000/health
 
 If a human gave you the `/install` URL and explicitly asked you to connect this
@@ -13,7 +14,7 @@ Laguarde server, follow that plain-text installation contract first.
 
 ## Agent workflow
 
-1. Connect to the MCP endpoint.
+1. Connect to the project-specific MCP endpoint returned during registration.
 2. Call `get_policy_bundle` at the beginning of a session.
 3. Before a material action, call `evaluate_action` with the exact action type,
    repository-relative targets, commands, and dependency changes.
@@ -39,6 +40,7 @@ Set `LAGUARDE_EVIDENCE_DIR` to choose where Markdown decision evidence is saved.
 
 ## Shared deployment
 
-Run the same server behind your team's HTTPS reverse proxy and configure agents
-with the shared `/mcp` URL. Authentication and role-based access are not
-implemented in the prototype; use a trusted network only.
+Run the same server behind your team's HTTPS reverse proxy, register each
+project, and configure agents with its `/mcp/projects/:projectId` URL.
+Authentication and role-based access are not implemented in the prototype; use
+a trusted network only.

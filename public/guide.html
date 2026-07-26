@@ -273,16 +273,16 @@
           <div class="section-head">
             <h2>Run it where your policies belong.</h2>
             <p>
-              Keep a private instance beside one project, or deploy the same
-              server behind your team’s HTTPS endpoint. Agents use the same MCP
-              contract in both modes.
+              Run one private local daemon for all of your projects, or deploy
+              one server behind your team’s HTTPS endpoint. Each repository gets
+              its own identity and MCP URL while sharing global policy.
             </p>
           </div>
           <div class="install-grid">
             <article class="install-box">
               <h3>Local MCP with npm</h3>
-              <p>Run it from any MCP client with Node.js 24 or newer.</p>
-              <pre><code id="npm-command">npx -y laguarde-mcp@0.2.1</code></pre>
+              <p>Reuse the local daemon and register the current repository.</p>
+              <pre><code id="npm-command">npx -y --package laguarde-mcp@0.3.0 laguarde-daemon register --cwd .</code></pre>
             </article>
             <article class="install-box">
               <h3>Team server with Docker</h3>
@@ -314,7 +314,7 @@
         package: document.querySelector('meta[name="laguarde-package-url"]').content || "https://www.npmjs.com/package/laguarde-mcp",
       };
       const packageName = document.querySelector('meta[name="laguarde-package-name"]').content || "laguarde-mcp";
-      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.2.1";
+      const packageVersion = document.querySelector('meta[name="laguarde-package-version"]').content || "0.3.0";
       document.querySelectorAll("[data-backend-path]").forEach(link => {
         link.href = new URL(link.dataset.backendPath, `${backendOrigin}/`).href;
       });
@@ -324,7 +324,7 @@
       });
       const installUrl = publicLinks.install;
       document.getElementById("agent-url").textContent = installUrl;
-      document.getElementById("npm-command").textContent = `npx -y ${packageName}@${packageVersion}`;
+      document.getElementById("npm-command").textContent = `npx -y --package ${packageName}@${packageVersion} laguarde-daemon register --cwd .`;
       document.getElementById("copy-agent-url").addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(installUrl);

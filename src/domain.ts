@@ -60,6 +60,7 @@ export interface GuidelineFields extends Record<string, unknown> {
 
 export interface Guideline {
   id: string;
+  project_id: string | null;
   kind: GuidelineKind;
   name: string;
   summary: string;
@@ -78,9 +79,18 @@ export interface Context {
   id: string;
   name: string;
   description: string | null;
+  repository_url: string | null;
+  root_path: string | null;
   active_kinds: GuidelineKind[];
   tags: string[];
   created_at: string;
+  last_seen_at: string;
+}
+
+export interface ProjectSummary extends Context {
+  project_policy_count: number;
+  decision_count: number;
+  open_proposal_count: number;
 }
 
 export interface ActionRequest {
@@ -126,6 +136,7 @@ export interface Decision {
 
 export interface Proposal {
   id: string;
+  project_id: string;
   scope_kind: GuidelineKind;
   scope_id: string | null;
   title: string;

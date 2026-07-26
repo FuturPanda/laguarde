@@ -38,6 +38,7 @@ export class LaguardeService {
   }
 
   proposePreference(input: {
+    project_id?: string;
     existing_proposal_id?: string;
     scope_kind?: string;
     scope_id?: string;
@@ -47,6 +48,16 @@ export class LaguardeService {
     proposed_by: string;
   }): ProposalWithObservations {
     if (input.existing_proposal_id) {
+      const existing = this.store.getProposal(input.existing_proposal_id);
+      if (
+        existing &&
+        input.project_id &&
+        existing.project_id !== input.project_id
+      ) {
+        throw new Error(
+          `Proposal '${input.existing_proposal_id}' belongs to project '${existing.project_id}'`,
+        );
+      }
       const proposal = this.store.addProposalObservation(
         input.existing_proposal_id,
         input.observation,
@@ -69,6 +80,7 @@ export class LaguardeService {
       );
     }
     return this.store.createProposal({
+      project_id: input.project_id,
       scope_kind: input.scope_kind,
       scope_id: input.scope_id,
       title: input.title,

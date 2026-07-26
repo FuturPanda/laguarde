@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "${LAGUARDE_PORT:-3000}:3000"
+    environment:
+      LAGUARDE_HOST: 0.0.0.0
     volumes:
       - laguarde-data:/data
     restart: unless-stopped

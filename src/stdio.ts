@@ -7,7 +7,9 @@ import { createRuntime } from "./runtime.js";
 import { createApp } from "./server.js";
 
 const runtime = createRuntime();
-const mcp = createMcpServer(runtime.service);
+const mcp = createMcpServer(runtime.service, {
+  projectId: process.env.LAGUARDE_PROJECT_ID,
+});
 const transport = new StdioServerTransport();
 const dashboardPort = Number(
   process.env.LAGUARDE_DASHBOARD_PORT ?? process.env.PORT ?? 3000,

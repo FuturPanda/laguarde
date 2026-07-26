@@ -16,6 +16,7 @@ API.
   initialization recipes, and PR review guidelines.
 - Four decisions: `allowed`, `limited`, `approval`, and `forbidden`.
 - Context-specific policy bundles with immutable revision identifiers.
+- One local daemon with a persistent registry of projects and Git origins.
 - Fail-safe action evaluation: an unmatched action is `limited`, not silently
   allowed.
 - Human approval for dependency, migration, deletion, and authentication
@@ -31,12 +32,14 @@ API.
 For a local MCP installation, use Node.js 24 or newer:
 
 ```bash
-npx -y laguarde-mcp@0.2.1
+npx -y --package laguarde-mcp@0.3.0 laguarde-daemon ensure
+npx -y --package laguarde-mcp@0.3.0 laguarde-daemon register --cwd .
 ```
 
-Normally your MCP client launches that command as a stdio server. Laguarde
-stores its SQLite database and decision evidence in `.laguarde/` in the current
-project, and exposes the optional dashboard at <http://localhost:3000>.
+The first command reuses the healthy local daemon or starts it once. The second
+registers the current Git repository and prints its project-specific MCP URL.
+All local projects share the daemon, dashboard, SQLite database, and audit
+history while remaining separately identifiable.
 
 Conceptual MCP configuration:
 
@@ -44,8 +47,8 @@ Conceptual MCP configuration:
 {
   "mcpServers": {
     "laguarde": {
-      "command": "npx",
-      "args": ["-y", "laguarde-mcp@0.2.1"]
+      "type": "http",
+      "url": "http://127.0.0.1:3000/mcp/projects/RETURNED_PROJECT_ID"
     }
   }
 }
@@ -59,8 +62,9 @@ bun run build
 bun run start
 ```
 
-The HTTP MCP endpoint is `http://localhost:3000/mcp`, and agent-facing
-discovery is available at <http://localhost:3000/llms.txt>.
+Project HTTP MCP endpoints live under
+`http://localhost:3000/mcp/projects/:projectId`, and agent-facing discovery is
+available at <http://localhost:3000/llms.txt>.
 
 Onboarding surfaces:
 
@@ -70,7 +74,7 @@ Onboarding surfaces:
 To onboard a capable agent, send it the `/install` URL and explicitly ask it to
 connect Laguarde for the current project. The contract tells it how to verify
 the server, make a minimal native MCP configuration change, discover the tools,
-and load the default policy bundle.
+and load the registered project's policy bundle.
 
 For S3/CloudFront onboarding, generate the two static upload objects with:
 
@@ -84,7 +88,7 @@ MCP Registry publication is automated through GitHub Actions after a one-time
 DNS authentication setup. See
 [`docs/registry-publishing.md`](docs/registry-publishing.md).
 
-The first start creates `.laguarde/laguarde.db`, seeds an example team context,
+The daemon's first start creates `~/.laguarde/laguarde.db`, seeds global policy,
 and adds ten policies. Set `LAGUARDE_DATA_DIR`, or the more specific
 `LAGUARDE_DB_PATH` and `LAGUARDE_EVIDENCE_DIR`, to place persistent data
 elsewhere.
@@ -108,6 +112,7 @@ See [usage instructions](docs/usage.md) for tool inputs and concrete calls.
 flowchart LR
   A[Agent / IDE] -->|MCP| M[Laguarde server]
   H[Human dashboard] -->|REST| M
+  M --> J[Project registry]
   M --> P[Policy evaluation]
   P --> D[(SQLite)]
   P --> E[Markdown evidence]

@@ -1,11 +1,13 @@
 {
   "name": "laguarde-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "description": "Self-hostable policy control plane for AI coding agents",
   "mcpName": "dev.futur-panda/laguarde",
   "bin": {
-    "laguarde": "dist/stdio.js"
+    "laguarde-mcp": "dist/stdio.js",
+    "laguarde": "dist/stdio.js",
+    "laguarde-daemon": "dist/daemon-cli.js"
   },
   "files": [
     "dist",
@@ -38,7 +40,7 @@
   "scripts": {
     "dev": "bun --watch src/server.ts",
     "start": "node dist/server.js",
-    "build": "bun build src/server.ts src/stdio.ts --outdir dist --target node --packages external --sourcemap=external",
+    "build": "bun build src/server.ts src/stdio.ts src/daemon-cli.ts --outdir dist --target node --packages external --sourcemap=external",
     "prepack": "bun run build",
     "typecheck": "tsc --noEmit",
     "test": "bun test",

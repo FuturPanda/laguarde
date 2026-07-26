@@ -34,6 +34,51 @@ export function createApiRouter(service: LaguardeService): Router {
     res.json({ contexts: store.listContexts() });
   });
 
+  router.get("/projects", (_req, res) => {
+    const projects = store.listProjects();
+    res.json({ count: projects.length, projects });
+  });
+
+  router.post("/projects/resolve", (req, res) => {
+    const { name, repository_url, root_path, description, tags } =
+      req.body as Record<string, unknown>;
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      (repository_url !== undefined && typeof repository_url !== "string") ||
+      (root_path !== undefined && typeof root_path !== "string") ||
+      (description !== undefined && typeof description !== "string") ||
+      (tags !== undefined && !stringArray(tags))
+    ) {
+      badRequest(
+        res,
+        "name and optional repository_url, root_path, description, and tags are required",
+      );
+      return;
+    }
+    if (!repository_url && !root_path) {
+      badRequest(res, "repository_url or root_path is required");
+      return;
+    }
+    try {
+      const project = store.resolveProject({
+        name,
+        repository_url:
+          typeof repository_url === "string" ? repository_url : undefined,
+        root_path: typeof root_path === "string" ? root_path : undefined,
+        description:
+          typeof description === "string" ? description : undefined,
+        tags: tags as string[] | undefined,
+      });
+      res.status(200).json({
+        project,
+        mcp_path: `/mcp/projects/${encodeURIComponent(project.id)}`,
+      });
+    } catch (error) {
+      badRequest(res, message(error));
+    }
+  });
+
   router.get("/policy-bundle", (req, res) => {
     try {
       const contextId =
@@ -58,7 +103,21 @@ export function createApiRouter(service: LaguardeService): Router {
         : undefined;
     const query =
       typeof req.query.q === "string" ? req.query.q : undefined;
-    const guidelines = store.listGuidelines({ kind, status, query });
+    const projectId =
+      typeof req.query.project_id === "string"
+        ? req.query.project_id
+        : undefined;
+    if (projectId && !store.getContext(projectId)) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    const guidelines = store.listGuidelines({
+      kind,
+      status,
+      query,
+      project_id: projectId,
+      include_global: true,
+    });
     res.json({ count: guidelines.length, guidelines });
   });
 
@@ -83,6 +142,7 @@ export function createApiRouter(service: LaguardeService): Router {
       status,
       fields,
       author,
+      project_id,
     } = req.body as Record<string, unknown>;
     const typedFields = (fields ?? {}) as GuidelineFields;
     if (
@@ -120,6 +180,10 @@ export function createApiRouter(service: LaguardeService): Router {
     try {
       const guideline = store.createGuideline({
         id,
+        project_id:
+          typeof project_id === "string" && project_id !== "default"
+            ? project_id
+            : null,
         kind,
         name,
         summary,
@@ -262,8 +326,16 @@ export function createApiRouter(service: LaguardeService): Router {
     }
   });
 
-  router.get("/decisions", (_req, res) => {
-    const decisions = store.listDecisions();
+  router.get("/decisions", (req, res) => {
+    const projectId =
+      typeof req.query.project_id === "string"
+        ? req.query.project_id
+        : undefined;
+    if (projectId && !store.getContext(projectId)) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    const decisions = store.listDecisions(100, projectId);
     res.json({ count: decisions.length, decisions });
   });
 
@@ -294,8 +366,16 @@ export function createApiRouter(service: LaguardeService): Router {
     }
   });
 
-  router.get("/proposals", (_req, res) => {
-    const proposals = store.listProposals();
+  router.get("/proposals", (req, res) => {
+    const projectId =
+      typeof req.query.project_id === "string"
+        ? req.query.project_id
+        : undefined;
+    if (projectId && !store.getContext(projectId)) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    const proposals = store.listProposals(projectId);
     res.json({ count: proposals.length, proposals });
   });
 
