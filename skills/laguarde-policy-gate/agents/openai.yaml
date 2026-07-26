@@ -1,0 +1,4 @@
+interface:
+  display_name: "Laguarde Policy Gate"
+  short_description: "Require Laguarde approval before agent actions"
+  default_prompt: "Use $laguarde-policy-gate to perform this task under the project’s Laguarde policies."

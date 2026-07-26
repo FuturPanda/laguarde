@@ -1,5 +1,7 @@
 # Laguarde
 
+[![skills.sh](https://skills.sh/b/FuturPanda/laguarde)](https://skills.sh/FuturPanda/laguarde)
+
 **Laguarde is a self-hostable policy control plane for AI coding agents.**
 
 It gives a team one persistent place to define engineering practices, evaluate
@@ -75,6 +77,19 @@ To onboard a capable agent, send it the `/install` URL and explicitly ask it to
 connect Laguarde for the current project. The contract tells it how to verify
 the server, make a minimal native MCP configuration change, discover the tools,
 and load the registered project's policy bundle.
+
+### Agent policy-gate skill
+
+Install the optional fail-closed skill from this repository with:
+
+```bash
+npx skills add https://github.com/FuturPanda/laguarde --skill laguarde-policy-gate
+```
+
+The skill requires a cooperative agent to load the project-bound Laguarde
+policy bundle, evaluate and record every material action, and stop when policy
+is unavailable, limited, approval-required, or forbidden. It does not replace
+a sandbox or host-level execution hook.
 
 For S3/CloudFront onboarding, generate the two static upload objects with:
 

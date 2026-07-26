@@ -120,6 +120,14 @@
       .downloads a:hover { color: var(--ink); border-color: #496255; }
       .micro { margin-top: 12px !important; font-size: 12px !important; }
 
+      .prompt-panel {
+        padding: 26px; border: 1px solid #365241; border-radius: 16px;
+        background: linear-gradient(145deg, rgba(18,33,25,.92), rgba(8,19,14,.96));
+      }
+      .prompt-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+      .prompt-actions { display: flex; gap: 10px; margin-top: 12px; }
+      .prompt-actions .button { min-width: 190px; }
+
       section { padding: 82px 0; border-top: 1px solid rgba(38, 55, 46, .65); }
       .section-head { display: grid; grid-template-columns: .8fr 1.2fr; gap: 40px; margin-bottom: 38px; }
       .section-head h2 { margin: 0; font-size: clamp(31px, 4vw, 48px); letter-spacing: -.05em; }
@@ -187,6 +195,7 @@
         <a class="brand" href="/guide" data-public-link="docs"><span class="mark">L</span> Laguarde</a>
         <nav aria-label="Primary navigation">
           <a href="#how">How it works</a>
+          <a href="#agent-setup">Agent setup</a>
           <a href="#run">Run it</a>
           <a class="dashboard" href="/" data-backend-path="/">Open dashboard</a>
         </nav>
@@ -204,7 +213,7 @@
             </p>
             <div class="hero-actions">
               <a class="button primary" href="/" data-backend-path="/">Open the dashboard</a>
-              <a class="button" href="/install" data-public-link="install">View agent contract</a>
+              <a class="button" href="#agent-setup">Give it to an agent</a>
             </div>
           </div>
 
@@ -221,9 +230,30 @@
               <a href="https://www.npmjs.com/package/laguarde-mcp" data-public-link="package">npm package</a>
               <span>No ZIP or checksum needed</span>
             </div>
-            <p class="micro">Suggested message: “Install Laguarde for this project using this URL.”</p>
+            <p class="micro">Or copy the complete agent prompt below for a hands-off setup.</p>
           </aside>
         </div>
+
+        <section id="agent-setup">
+          <div class="section-head">
+            <h2>Hand the setup to your agent.</h2>
+            <p>
+              Paste this prompt into an agent working inside the repository. It
+              tells the agent to reuse an existing Laguarde daemon, register the
+              project, configure its own MCP connection, and verify the result.
+            </p>
+          </div>
+          <div class="prompt-panel">
+            <pre><code id="agent-prompt">Install and configure Laguarde for this repository. First read the Laguarde installation contract and follow it exactly: …/install
+
+Before starting anything, check whether a Laguarde daemon is already healthy on this computer and reuse it. Do not create a second instance. Register the current Git repository, configure this agent/client to use the returned project-specific MCP URL, verify that the Laguarde MCP tools are available, then load the policy bundle for this project.
+
+When finished, report the project ID, dashboard URL, MCP URL, and verification result. Do not expose secrets or create or modify policies during setup.</code></pre>
+            <div class="prompt-actions">
+              <button class="button primary" id="copy-agent-prompt">Copy prompt for agent</button>
+            </div>
+          </div>
+        </section>
 
         <section id="how">
           <div class="section-head">
@@ -323,17 +353,30 @@
         if (configured) link.href = configured;
       });
       const installUrl = publicLinks.install;
+      const agentPrompt = `Install and configure Laguarde for this repository. First read the Laguarde installation contract and follow it exactly: ${installUrl}
+
+Before starting anything, check whether a Laguarde daemon is already healthy on this computer and reuse it. Do not create a second instance. Register the current Git repository, configure this agent/client to use the returned project-specific MCP URL, verify that the Laguarde MCP tools are available, then load the policy bundle for this project.
+
+When finished, report the project ID, dashboard URL, MCP URL, and verification result. Do not expose secrets or create or modify policies during setup.`;
       document.getElementById("agent-url").textContent = installUrl;
+      document.getElementById("agent-prompt").textContent = agentPrompt;
       document.getElementById("npm-command").textContent = `npx -y --package ${packageName}@${packageVersion} laguarde-daemon register --cwd .`;
-      document.getElementById("copy-agent-url").addEventListener("click", async () => {
+      async function copyText(value, fallbackLabel, confirmation) {
         try {
-          await navigator.clipboard.writeText(installUrl);
+          await navigator.clipboard.writeText(value);
         } catch {
-          window.prompt("Copy this agent installation URL:", installUrl);
+          window.prompt(fallbackLabel, value);
         }
         const toast = document.getElementById("toast");
+        toast.textContent = confirmation;
         toast.classList.add("show");
         setTimeout(() => toast.classList.remove("show"), 1800);
+      }
+      document.getElementById("copy-agent-url").addEventListener("click", () => {
+        copyText(installUrl, "Copy this agent installation URL:", "Agent URL copied");
+      });
+      document.getElementById("copy-agent-prompt").addEventListener("click", () => {
+        copyText(agentPrompt, "Copy this prompt for your agent:", "Agent prompt copied");
       });
     </script>
   </body>
